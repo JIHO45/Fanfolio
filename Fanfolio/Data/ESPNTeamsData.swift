@@ -24,25 +24,71 @@ struct LeagueInfo: Identifiable {
     let id: String
     let code: String
     let displayName: String
+
+    /// UI 표시용 로컬라이즈된 리그 이름
+    var localizedDisplayName: String {
+        Bundle.main.localizedString(forKey: "league.\(id)", value: displayName, table: nil)
+    }
+
+    /// 리그 코드 → 기본 표기 문자열(로컬라이즈 키로도 사용). 새 리그는 여기만 추가합니다.
+    private static func leagueLabel(for code: String) -> String {
+        switch code {
+        case "ENG.1":               return "프리미어리그"
+        case "ESP.1":               return "라리가"
+        case "GER.1":               return "분데스리가"
+        case "ITA.1":               return "세리에 A"
+        case "FRA.1":               return "리그 1"
+        case "USA.1":               return "MLS"
+        case "MLB":                 return "MLB"
+        case "KBO":                 return "KBO"
+        case "NBA":                 return "NBA"
+        case "NFL":                 return "NFL"
+        case "NED.1":               return "에레디비시"
+        case "POR.1":               return "프리메이라리가"
+        case "TUR.1":               return "쉬페르리그"
+        case "BEL.1":               return "주필러 프로리그"
+        case "GRE.1":               return "슈퍼리그 그리스"
+        case "CZE.1":               return "체코 포르스트리가"
+        case "DEN.1":               return "수페르리가"
+        case "ENG.FA":              return "FA컵"
+        case "ENG.LEAGUE_CUP":      return "리그컵"
+        case "ESP.COPA":            return "코파 델 레이"
+        case "GER.DFB":             return "DFB-포칼"
+        case "ITA.COPPA":           return "코파 이탈리아"
+        case "FRA.COUPE_DE_FRANCE": return "쿠프 드 프랑스"
+        case "UEFA.CHAMPIONS":      return "챔피언스리그"
+        case "UEFA.EUROPA":         return "유로파리그"
+        default:                    return code
+        }
+    }
+
+    /// `Text` 등 SwiftUI용
+    static func displayName(for code: String) -> LocalizedStringKey {
+        LocalizedStringKey(leagueLabel(for: code))
+    }
+
+    /// 평문 `String`이 필요할 때 (예: `LiveFixture` 메타데이터)
+    static func displayNameString(for code: String) -> String {
+        let label = leagueLabel(for: code)
+        return Bundle.main.localizedString(forKey: label, value: label, table: nil)
+    }
 }
 
 // MARK: - 종목별 리그 매핑
 extension SportType {
-    /// 팀 선택이 필요 없는 종목 (테니스, 골프, UFC)
+    /// 팀 선택이 필요 없는 종목
     var requiresTeamSelection: Bool {
         switch self {
-        case .tennis, .golf, .mma: return false
+        case .other: return false
         default: return true
         }
     }
 
     /// 팀 선택이 없는 종목의 폴더 이름 힌트
-    var noTeamNameHint: String {
+    var noTeamNameHint: LocalizedStringKey {
         switch self {
-        case .tennis: return "예: 나달, 페더러, 정현"
-        case .golf:   return "예: 타이거 우즈, 임성재"
-        case .mma:    return "예: UFC 관람, 이정현"
-        default:      return "예: LG 트윈스, FC서울"
+        case .other: return "예: 테니스 직관, 복싱 경기"
+        default:     return "예: LG 트윈스, FC서울"
         }
     }
 
@@ -56,33 +102,25 @@ extension SportType {
             ]
         case .soccer:
             return [
-                LeagueInfo(id: "epl",        code: "ENG.1",          displayName: "EPL"),
-                LeagueInfo(id: "laliga",     code: "ESP.1",          displayName: "라리가"),
-                LeagueInfo(id: "bundesliga", code: "GER.1",          displayName: "분데스리가"),
-                LeagueInfo(id: "seriea",     code: "ITA.1",          displayName: "세리에 A"),
-                LeagueInfo(id: "ligue1",     code: "FRA.1",          displayName: "리그 1"),
-                LeagueInfo(id: "mls",        code: "USA.1",          displayName: "MLS"),
-                LeagueInfo(id: "ucl",        code: "UEFA.CHAMPIONS", displayName: "챔피언스리그"),
-                LeagueInfo(id: "kleague",    code: "KOR.1",          displayName: "K리그1"),
+                LeagueInfo(id: "epl",        code: "ENG.1",  displayName: "EPL"),
+                LeagueInfo(id: "laliga",     code: "ESP.1",  displayName: "라리가"),
+                LeagueInfo(id: "bundesliga", code: "GER.1",  displayName: "분데스리가"),
+                LeagueInfo(id: "seriea",     code: "ITA.1",  displayName: "세리에 A"),
+                LeagueInfo(id: "ligue1",     code: "FRA.1",  displayName: "리그 1"),
+                LeagueInfo(id: "mls",        code: "USA.1",  displayName: "MLS"),
+                LeagueInfo(id: "eredivisie", code: "NED.1",  displayName: "에레디비시"),
+                LeagueInfo(id: "primeiralg", code: "POR.1",  displayName: "프리메이라리가"),
+                LeagueInfo(id: "superlig",   code: "TUR.1",  displayName: "쉬페르리그"),
+                LeagueInfo(id: "proleague",  code: "BEL.1",  displayName: "주필러 프로리그"),
+                LeagueInfo(id: "superleagr", code: "GRE.1",  displayName: "슈퍼리그 그리스"),
+                LeagueInfo(id: "firstliga",  code: "CZE.1",  displayName: "체코 포르스트리가"),
+                LeagueInfo(id: "superliga",  code: "DEN.1",  displayName: "수페르리가"),
             ]
         case .basketball:
             return [LeagueInfo(id: "nba", code: "NBA", displayName: "NBA")]
         case .americanFootball:
             return [LeagueInfo(id: "nfl", code: "NFL", displayName: "NFL")]
-        case .hockey:
-            return [LeagueInfo(id: "nhl", code: "NHL", displayName: "NHL")]
-        case .racing:
-            return [LeagueInfo(id: "f1",  code: "F1",  displayName: "F1")]
-        case .mma:
-            return [LeagueInfo(id: "ufc", code: "UFC", displayName: "UFC")]
-        case .tennis:
-            return [
-                LeagueInfo(id: "atp", code: "ATP", displayName: "ATP"),
-                LeagueInfo(id: "wta", code: "WTA", displayName: "WTA"),
-            ]
-        case .golf:
-            return [LeagueInfo(id: "pga", code: "PGA", displayName: "PGA Tour")]
-        case .volleyball, .eSports, .other:
+        case .other:
             return []
         }
     }
@@ -93,10 +131,11 @@ extension SportType {
         case .americanFootball: return ["NFL": 1]
         case .basketball:       return ["NBA": 12]
         case .baseball:         return ["MLB": 1, "KBO": 10]
-        case .hockey:           return ["NHL": 57]
-        case .soccer:           return ["ENG.1": 39, "ESP.1": 140, "GER.1": 78, "ITA.1": 135, "FRA.1": 61, "USA.1": 253, "UEFA.CHAMPIONS": 2, "KOR.1": 292]
-        case .racing:           return ["F1": 1]
-        case .volleyball, .mma, .tennis, .golf, .eSports, .other: return [:]
+        case .soccer:           return [
+            "ENG.1": 39, "ESP.1": 140, "GER.1": 78, "ITA.1": 135, "FRA.1": 61, "USA.1": 253,
+            "NED.1": 88, "POR.1": 94, "TUR.1": 203, "BEL.1": 144, "GRE.1": 197, "CZE.1": 345, "DEN.1": 119,
+        ]
+        case .other:            return [:]
         }
     }
 }

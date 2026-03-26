@@ -6,7 +6,9 @@
 //
 
 import SwiftUI
+import SwiftData
 import PhotosUI
+import UIKit
 
 struct SettingsView: View {
     @Environment(AuthService.self) private var authService
@@ -28,11 +30,11 @@ struct SettingsView: View {
                 accountSection
                 aboutSection
             }
-            .navigationTitle("설정")
+            .navigationTitle(String(localized: "settings.navigationTitle", defaultValue: "설정"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("완료") { dismiss() }
+                    Button(String(localized: "common.action.done", defaultValue: "완료")) { dismiss() }
                 }
             }
             .onChange(of: selectedPhoto) { _, newValue in
@@ -78,10 +80,10 @@ struct SettingsView: View {
             // 이름
             if editingName {
                 HStack {
-                    TextField("이름", text: $nameInput)
+                    TextField(String(localized: "settings.profile.nameField", defaultValue: "이름"), text: $nameInput)
                         .textFieldStyle(.roundedBorder)
                     
-                    Button("저장") {
+                    Button(String(localized: "common.action.save", defaultValue: "저장")) {
                         let trimmed = nameInput.trimmingCharacters(in: .whitespaces)
                         if !trimmed.isEmpty {
                             authService.updateUserName(trimmed)
@@ -92,9 +94,9 @@ struct SettingsView: View {
                 }
             } else {
                 HStack {
-                    Text("이름")
+                    Text(String(localized: "settings.profile.nameLabel", defaultValue: "이름"))
                     Spacer()
-                    Text(authService.userName.isEmpty ? "미설정" : authService.userName)
+                    Text(authService.isGuest ? String(localized: "settings.profile.guest", defaultValue: "게스트") : (authService.userName.isEmpty ? String(localized: "settings.profile.nameUnset", defaultValue: "미설정") : authService.userName))
                         .foregroundStyle(.secondary)
                     
                     Button {
@@ -110,14 +112,14 @@ struct SettingsView: View {
             // 이메일 (Apple ID로 로그인한 경우)
             if authService.isSignedIn && !authService.userEmail.isEmpty {
                 HStack {
-                    Text("이메일")
+                    Text(String(localized: "settings.profile.emailLabel", defaultValue: "이메일"))
                     Spacer()
                     Text(authService.userEmail)
                         .foregroundStyle(.secondary)
                 }
             }
         } header: {
-            Text("프로필")
+            Text(String(localized: "settings.section.profile", defaultValue: "프로필"))
         }
     }
     
@@ -126,14 +128,14 @@ struct SettingsView: View {
         Section {
             // iCloud 동기화 상태
             HStack {
-                Label("iCloud 동기화", systemImage: "icloud")
+                Label(String(localized: "settings.account.iCloudSync", defaultValue: "iCloud 동기화"), systemImage: "icloud")
                 Spacer()
                 if FileManager.default.ubiquityIdentityToken != nil {
-                    Text("연결됨")
+                    Text(String(localized: "settings.account.connected", defaultValue: "연결됨"))
                         .foregroundStyle(.green)
                         .font(.subheadline)
                 } else {
-                    Text("연결 안 됨")
+                    Text(String(localized: "settings.account.disconnected", defaultValue: "연결 안 됨"))
                         .foregroundStyle(.orange)
                         .font(.subheadline)
                 }
@@ -141,9 +143,9 @@ struct SettingsView: View {
             
             // 로그인 상태 표시
             HStack {
-                Label("로그인", systemImage: "person.badge.key")
+                Label(String(localized: "settings.account.signInStatus", defaultValue: "로그인"), systemImage: "person.badge.key")
                 Spacer()
-                Text(authService.isSignedIn ? "Apple ID" : "게스트")
+                Text(authService.isSignedIn ? String(localized: "settings.account.appleID", defaultValue: "Apple ID") : String(localized: "settings.profile.guest", defaultValue: "게스트"))
                     .foregroundStyle(.secondary)
                     .font(.subheadline)
             }
@@ -152,17 +154,17 @@ struct SettingsView: View {
             Button {
                 showingLogoutAlert = true
             } label: {
-                Label("로그아웃", systemImage: "rectangle.portrait.and.arrow.right")
+                Label(String(localized: "settings.account.signOut", defaultValue: "로그아웃"), systemImage: "rectangle.portrait.and.arrow.right")
                     .foregroundStyle(.red)
             }
-            .alert("로그아웃", isPresented: $showingLogoutAlert) {
-                Button("취소", role: .cancel) {}
-                Button("로그아웃", role: .destructive) {
+            .alert(String(localized: "settings.logout.title", defaultValue: "로그아웃"), isPresented: $showingLogoutAlert) {
+                Button(String(localized: "common.action.cancel", defaultValue: "취소"), role: .cancel) {}
+                Button(String(localized: "settings.account.signOut", defaultValue: "로그아웃"), role: .destructive) {
                     authService.signOut()
                     dismiss()
                 }
             } message: {
-                Text("로그아웃하면 로그인 화면으로 돌아갑니다. 기록 데이터는 기기에 유지됩니다.")
+                Text(String(localized: "settings.logout.message", defaultValue: "로그인 화면으로 돌아갑니다. 직관·문화 기록과 티켓 사진 등 앱 데이터는 이 기기에서 삭제되지 않습니다."))
             }
             
             // 계정 삭제
@@ -170,24 +172,27 @@ struct SettingsView: View {
                 Button {
                     showingDeleteAccountAlert = true
                 } label: {
-                    Label("계정 삭제", systemImage: "trash")
+                    Label(String(localized: "settings.account.deleteAccount", defaultValue: "계정 삭제"), systemImage: "trash")
                         .foregroundStyle(.red)
                 }
-                .alert("계정 삭제", isPresented: $showingDeleteAccountAlert) {
-                    Button("취소", role: .cancel) {}
-                    Button("삭제", role: .destructive) {
+                .alert(String(localized: "settings.deleteAccount.title", defaultValue: "계정 삭제"), isPresented: $showingDeleteAccountAlert) {
+                    Button(String(localized: "common.action.cancel", defaultValue: "취소"), role: .cancel) {}
+                    Button(String(localized: "common.action.delete", defaultValue: "삭제"), role: .destructive) {
                         profileImageData = nil
                         authService.deleteAccount()
                         dismiss()
                     }
                 } message: {
-                    Text("계정을 삭제하면 프로필 정보가 초기화됩니다. 기록 데이터는 기기에 유지됩니다.")
+                    Text(String(localized: "settings.deleteAccount.message", defaultValue: "이 기기에 저장된 Apple 로그인 식별 정보와 이름·이메일(저장된 경우), 프로필 사진이 제거됩니다. 직관·문화 기록과 티켓 이미지는 그대로 남습니다. iCloud에 동기화된 데이터는 기기의 iCloud 설정에서 관리됩니다."))
                 }
             }
         } header: {
-            Text("계정")
+            Text(String(localized: "settings.section.account", defaultValue: "계정"))
         } footer: {
-            Text("iCloud 동기화는 기기의 iCloud 계정으로 자동 작동합니다. 설정 > Apple ID > iCloud에서 확인할 수 있습니다.")
+            VStack(alignment: .leading, spacing: 8) {
+                Text(String(localized: "settings.account.footer.iCloud", defaultValue: "iCloud 동기화는 기기의 iCloud 계정으로 자동 작동합니다. 설정 > Apple ID > iCloud에서 확인할 수 있습니다."))
+                Text(String(localized: "settings.account.footer.appData", defaultValue: "로그인 방식(Apple ID·게스트)과 관계없이 기록과 사진은 주로 이 기기의 앱 저장소에 남습니다. 로그아웃·계정 삭제는 앱에 저장된 로그인·프로필 정보만 지웁니다."))
+            }
         }
     }
     
@@ -195,25 +200,32 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
             HStack {
-                Text("버전")
+                Text(String(localized: "settings.about.version", defaultValue: "버전"))
                 Spacer()
                 Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
                     .foregroundStyle(.secondary)
             }
         } header: {
-            Text("앱 정보")
+            Text(String(localized: "settings.section.about", defaultValue: "앱 정보"))
         }
     }
     
     // MARK: - 사진 로드
     private func loadProfilePhoto(from item: PhotosPickerItem?) {
         Task {
-            if let data = try? await item?.loadTransferable(type: Data.self) {
-                // 프로필 사진은 작게 압축해서 저장
-                if let uiImage = UIImage(data: data),
-                   let compressed = uiImage.jpegData(compressionQuality: 0.5) {
-                    profileImageData = compressed
-                }
+            guard let data = try? await item?.loadTransferable(type: Data.self),
+                  let uiImage = UIImage(data: data) else { return }
+
+            let targetSize = CGSize(width: 150, height: 150)
+            let renderer = UIGraphicsImageRenderer(size: targetSize)
+            let resizedImage = renderer.image { _ in
+                uiImage.draw(in: CGRect(origin: .zero, size: targetSize))
+            }
+
+            guard let compressed = resizedImage.jpegData(compressionQuality: 0.8) else { return }
+
+            await MainActor.run {
+                profileImageData = compressed
             }
         }
     }
@@ -222,4 +234,5 @@ struct SettingsView: View {
 #Preview {
     SettingsView()
         .environment(AuthService())
+        .modelContainer(SportsPreviewSampleData.container)
 }

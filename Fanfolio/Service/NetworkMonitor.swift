@@ -6,6 +6,7 @@
 //  오프라인 상태에서 API 호출을 사전에 차단합니다.
 //
 
+import Foundation
 import Network
 import Observation
 import os.log
@@ -30,9 +31,9 @@ final class NetworkMonitor {
         var displayName: String {
             switch self {
             case .wifi:     return "Wi-Fi"
-            case .cellular: return "셀룰러"
-            case .other:    return "기타"
-            case .unknown:  return "알 수 없음"
+            case .cellular: return String(localized: "network.connection.cellular", defaultValue: "셀룰러")
+            case .other:    return String(localized: "network.connection.other", defaultValue: "기타")
+            case .unknown:  return String(localized: "network.connection.unknown", defaultValue: "알 수 없음")
             }
         }
     }

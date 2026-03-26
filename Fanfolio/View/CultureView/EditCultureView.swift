@@ -18,6 +18,7 @@ struct EditCultureView: View {
     @State private var title: String
     @State private var artist: String
     @State private var date: Date
+    @State private var includeTime: Bool
     @State private var location: String
     @State private var seatInfo: String
     @State private var rating: Int
@@ -28,9 +29,13 @@ struct EditCultureView: View {
     @State private var qrCodeImageData: Data?
     @State private var qrDetected = false
     
-    // MARK: - Photo State (현장 사진)
+    // MARK: - Photo State (현장 사진) — 경로(기존) + Data(신규 선택)
+    private enum DisplayPhotoItem {
+        case path(String)
+        case data(Data)
+    }
     @State private var selectedPhotos: [PhotosPickerItem] = []
-    @State private var photosData: [Data]
+    @State private var displayPhotoItems: [DisplayPhotoItem]
     
     private var folderName: String {
         event.folder?.name ?? ""
@@ -45,13 +50,18 @@ struct EditCultureView: View {
         _eventStatus = State(initialValue: event.eventStatus)
         _title = State(initialValue: event.title)
         _artist = State(initialValue: event.artist ?? "")
-        _date = State(initialValue: event.date ?? Date())
+        let existingDate = event.date ?? Date()
+        _date = State(initialValue: existingDate)
+        let cal = Calendar.current
+        _includeTime = State(initialValue: cal.component(.hour, from: existingDate) != 0 || cal.component(.minute, from: existingDate) != 0)
         _location = State(initialValue: event.location ?? "")
         _seatInfo = State(initialValue: event.seatInfo ?? "")
         _rating = State(initialValue: event.rating)
         _memo = State(initialValue: event.memo ?? "")
         _qrCodeImageData = State(initialValue: event.qrCodeImageData)
-        _photosData = State(initialValue: event.photosData ?? [])
+        let paths = event.photoPaths ?? []
+        let legacyData = event.photosData ?? []
+        _displayPhotoItems = State(initialValue: paths.map { DisplayPhotoItem.path($0) } + legacyData.map { DisplayPhotoItem.data($0) })
     }
     
     var body: some View {
@@ -94,7 +104,7 @@ extension EditCultureView {
         Section {
             Picker("상태", selection: $eventStatus) {
                 ForEach(EventStatus.allCases) { status in
-                    Label(status.rawValue, systemImage: status.iconName)
+                    Label(status.displayName, systemImage: status.iconName)
                         .tag(status)
                 }
             }
@@ -149,7 +159,7 @@ extension EditCultureView {
         }
     }
     
-    private var ratingText: String {
+    private var ratingText: LocalizedStringKey {
         switch rating {
         case 5: return "최고의 경험!"
         case 4: return "매우 좋았어요"
@@ -163,60 +173,33 @@ extension EditCultureView {
     private var dateLocationSection: some View {
         Section("날짜 · 장소") {
             DatePicker("날짜", selection: $date, displayedComponents: .date)
+            Toggle(isOn: $includeTime.animation()) {
+                Label("시간 설정", systemImage: "clock")
+            }
+            if includeTime {
+                DatePicker("시간", selection: $date, displayedComponents: .hourAndMinute)
+            }
             TextField("장소 (선택)", text: $location)
             TextField("좌석 정보 (선택)", text: $seatInfo)
         }
     }
     
     private var ticketPhotoSection: some View {
-        Section {
-            PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                if let data = qrCodeImageData,
-                   let uiImage = UIImage(data: data) {
-                    VStack(spacing: 8) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: 200)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                        
-                        if qrDetected {
-                            Label("QR코드 자동 감지됨", systemImage: "checkmark.circle.fill")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(.green)
-                        }
-                        
-                        Text("탭하여 변경")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Label("티켓 · QR코드 사진 추가", systemImage: "qrcode.viewfinder")
-                        .foregroundStyle(.blue)
-                }
-            }
-            
-            if qrCodeImageData != nil {
-                Button("사진 삭제", role: .destructive) {
-                    qrCodeImageData = nil
-                    selectedPhoto = nil
-                    qrDetected = false
-                }
-            }
-        } header: {
-            Text("티켓 · QR코드")
-        } footer: {
-            Text("사진에 QR코드가 포함되어 있으면 자동으로 감지하여 QR 영역만 추출합니다.")
-        }
+        TicketPhotoSectionView(
+            selectedPhoto: $selectedPhoto,
+            qrCodeImageData: $qrCodeImageData,
+            qrDetected: $qrDetected
+        )
     }
     
     private var eventPhotosSection: some View {
         Section {
-            if !photosData.isEmpty {
+            if !displayPhotoItems.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(photosData.indices, id: \.self) { index in
-                            if let uiImage = UIImage(data: photosData[index]) {
+                        ForEach(displayPhotoItems.indices, id: \.self) { index in
+                            let item = displayPhotoItems[index]
+                            if let uiImage = photoImage(for: item) {
                                 ZStack(alignment: .topTrailing) {
                                     Image(uiImage: uiImage)
                                         .resizable()
@@ -225,7 +208,7 @@ extension EditCultureView {
                                         .clipShape(RoundedRectangle(cornerRadius: 10))
                                     
                                     Button {
-                                        photosData.remove(at: index)
+                                        displayPhotoItems.remove(at: index)
                                     } label: {
                                         Image(systemName: "xmark.circle.fill")
                                             .font(.title3)
@@ -243,11 +226,11 @@ extension EditCultureView {
             
             PhotosPicker(
                 selection: $selectedPhotos,
-                maxSelectionCount: 10,
+                maxSelectionCount: max(0, 10 - displayPhotoItems.count),
                 matching: .images
             ) {
                 Label(
-                    photosData.isEmpty ? "현장 사진 추가" : "사진 추가 (\(photosData.count)/10)",
+                    displayPhotoItems.isEmpty ? "현장 사진 추가" : "사진 추가 (\(displayPhotoItems.count)/10)",
                     systemImage: "camera.fill"
                 )
                 .foregroundStyle(.blue)
@@ -256,6 +239,13 @@ extension EditCultureView {
             Text("현장 사진")
         } footer: {
             Text("공연장 사진, 셀카, 포토카드 등 추억을 기록하세요. (최대 10장)")
+        }
+    }
+    
+    private func photoImage(for item: DisplayPhotoItem) -> UIImage? {
+        switch item {
+        case .path(let p): return ArchivePhotoStore.loadImage(path: p)
+        case .data(let d): return UIImage(data: d)
         }
     }
     
@@ -282,13 +272,16 @@ extension EditCultureView {
     
     private func loadPhotos(from items: [PhotosPickerItem]) {
         Task {
-            var newPhotos: [Data] = []
+            var newItems: [DisplayPhotoItem] = []
             for item in items {
                 if let data = try? await item.loadTransferable(type: Data.self) {
-                    newPhotos.append(data)
+                    newItems.append(.data(data))
                 }
             }
-            photosData = newPhotos
+            let allowed = max(0, 10 - displayPhotoItems.count)
+            await MainActor.run {
+                displayPhotoItems.append(contentsOf: newItems.prefix(allowed))
+            }
         }
     }
     
@@ -296,13 +289,29 @@ extension EditCultureView {
         event.eventStatus = eventStatus
         event.title = title
         event.artist = artist.isEmpty ? nil : artist
-        event.date = date
+        event.date = includeTime ? date : Calendar.current.startOfDay(for: date)
         event.location = location.isEmpty ? nil : location
         event.seatInfo = seatInfo.isEmpty ? nil : seatInfo
         event.rating = rating
         event.memo = memo.isEmpty ? nil : memo
         event.qrCodeImageData = qrCodeImageData
-        event.photosData = photosData.isEmpty ? nil : photosData
+        
+        var paths: [String] = []
+        let batchID = UUID()
+        for (index, item) in displayPhotoItems.enumerated() {
+            switch item {
+            case .path(let p): paths.append(p)
+            case .data(let d):
+                if let p = try? ArchivePhotoStore.savePhoto(d, itemID: batchID, index: index, folder: .culture) {
+                    paths.append(p)
+                }
+            }
+        }
+        let previousPaths = event.photoPaths ?? []
+        let toDelete = previousPaths.filter { !paths.contains($0) }
+        ArchivePhotoStore.delete(paths: toDelete)
+        event.photoPaths = paths.isEmpty ? nil : paths
+        event.photosData = nil
         dismiss()
     }
 }

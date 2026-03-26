@@ -9,10 +9,17 @@ import SwiftUI
 import SwiftData
 
 struct CategoryView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \SportsFanFolder.orderIndex) private var sportsFolders: [SportsFanFolder]
     @Query(sort: \CultureFanFolder.orderIndex) private var cultureFolders: [CultureFanFolder]
     
+    @AppStorage("hasSeenFanfolioWelcome") private var hasSeenFanfolioWelcome = false
+    @State private var showWelcomeOnboarding = false
+    /// 환영 시트 표시 여부를 한 번만 결정 (쿼리 지연·재실행과 무관하게)
+    @State private var didRunWelcomePresentationGate = false
+    
     @State private var isSidebarVisible: Bool = false
+    @State private var isTicketGallerySelected = false
     @State private var selectedSportsFolder: SportsFanFolder?
     @State private var selectedCultureFolder: CultureFanFolder?
     @State private var activeSection: ArchiveCategory = .sports
@@ -27,6 +34,7 @@ struct CategoryView: View {
         ZStack(alignment: .leading) {
             MainContentView(
                 isSidebarVisible: $isSidebarVisible,
+                isTicketGallerySelected: isTicketGallerySelected,
                 selectedSportsFolder: selectedSportsFolder,
                 selectedCultureFolder: selectedCultureFolder,
                 activeSection: activeSection
@@ -46,6 +54,7 @@ struct CategoryView: View {
             
             SidebarView(
                 isSidebarVisible: $isSidebarVisible,
+                isTicketGallerySelected: $isTicketGallerySelected,
                 selectedSportsFolder: $selectedSportsFolder,
                 selectedCultureFolder: $selectedCultureFolder,
                 activeSection: $activeSection
@@ -55,7 +64,9 @@ struct CategoryView: View {
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSidebarVisible)
         .task {
-            // 앱 시작 시 마지막 상태 복원 (한 번만)
+            // 앱 시작 시 마지막 상태 복원 — hasRestoredState로 의도적으로 1회만 수행.
+            // (SwiftData @Query가 첫 프레임에 비어 있다가 채워지는 경우, 복원이 누락되면
+            //  별도 onChange(폴더 개수 등) 보완을 검토하세요.)
             guard !hasRestoredState else { return }
             hasRestoredState = true
             
@@ -63,7 +74,9 @@ struct CategoryView: View {
                 activeSection = section
             }
             if !savedFolderName.isEmpty {
-                if savedFolderType == "culture" {
+                if savedFolderType == "gallery" {
+                    isTicketGallerySelected = true
+                } else if savedFolderType == "culture" {
                     selectedCultureFolder = cultureFolders.first { $0.name == savedFolderName }
                 } else {
                     selectedSportsFolder = sportsFolders.first { $0.name == savedFolderName }
@@ -72,22 +85,74 @@ struct CategoryView: View {
         }
         .onChange(of: selectedSportsFolder) { _, folder in
             if folder != nil {
+                isTicketGallerySelected = false
                 savedFolderName = folder?.name ?? ""
                 savedFolderType = "sports"
-            } else if selectedCultureFolder == nil {
+            } else if selectedCultureFolder == nil, !isTicketGallerySelected {
                 savedFolderName = ""
             }
         }
         .onChange(of: selectedCultureFolder) { _, folder in
             if folder != nil {
+                isTicketGallerySelected = false
                 savedFolderName = folder?.name ?? ""
                 savedFolderType = "culture"
-            } else if selectedSportsFolder == nil {
+            } else if selectedSportsFolder == nil, !isTicketGallerySelected {
                 savedFolderName = ""
+            }
+        }
+        .onChange(of: isTicketGallerySelected) { _, isSelected in
+            if isSelected {
+                selectedSportsFolder = nil
+                selectedCultureFolder = nil
+                savedFolderName = ""
+                savedFolderType = "gallery"
+            } else if selectedSportsFolder == nil, selectedCultureFolder == nil {
+                savedFolderType = activeSection == .culture ? "culture" : "sports"
             }
         }
         .onChange(of: activeSection) { _, section in
             savedSection = section.rawValue
+        }
+        .task {
+            LegacyArchivePhotoMigration.runIfNeeded(in: modelContext)
+        }
+        .task {
+            guard !didRunWelcomePresentationGate else { return }
+            didRunWelcomePresentationGate = true
+            guard !hasSeenFanfolioWelcome else { return }
+            // iCloud(CloudKit) 등으로 폴더가 늦게 내려오는 경우: 최대 ~6초간 0.5초마다 재확인 후에만 환영 시트 표시
+            for _ in 0..<12 {
+                if hasSeenFanfolioWelcome { return }
+                if !sportsFolders.isEmpty || !cultureFolders.isEmpty {
+                    hasSeenFanfolioWelcome = true
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            guard !hasSeenFanfolioWelcome else { return }
+            showWelcomeOnboarding = true
+        }
+        .onChange(of: sportsFolders.count) { _, _ in
+            applyWelcomeEligibilityAfterFolderSync()
+        }
+        .onChange(of: cultureFolders.count) { _, _ in
+            applyWelcomeEligibilityAfterFolderSync()
+        }
+        .sheet(isPresented: $showWelcomeOnboarding) {
+            WelcomeOnboardingView()
+        }
+        .onChange(of: showWelcomeOnboarding) { _, isPresented in
+            if !isPresented { hasSeenFanfolioWelcome = true }
+        }
+    }
+
+    /// 동기화로 폴더가 채워지면 환영 시트를 취소하고, 기존 사용자로 간주합니다.
+    private func applyWelcomeEligibilityAfterFolderSync() {
+        guard !hasSeenFanfolioWelcome else { return }
+        if !sportsFolders.isEmpty || !cultureFolders.isEmpty {
+            hasSeenFanfolioWelcome = true
+            showWelcomeOnboarding = false
         }
     }
 }
@@ -96,10 +161,12 @@ struct CategoryView: View {
 struct SidebarView: View {
     @Query(sort: \SportsFanFolder.orderIndex) private var sportsFolders: [SportsFanFolder]
     @Query(sort: \CultureFanFolder.orderIndex) private var cultureFolders: [CultureFanFolder]
+    @Query(sort: \SavedTicket.createdAt, order: .reverse) private var savedTickets: [SavedTicket]
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
     
     @Binding var isSidebarVisible: Bool
+    @Binding var isTicketGallerySelected: Bool
     @Binding var selectedSportsFolder: SportsFanFolder?
     @Binding var selectedCultureFolder: CultureFanFolder?
     @Binding var activeSection: ArchiveCategory
@@ -133,6 +200,11 @@ struct SidebarView: View {
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 4) {
+                        ticketGalleryEntry
+                        
+                        Divider()
+                            .padding(.vertical, 12)
+                        
                         // 스포츠 섹션
                         sportsSectionHeader
                         sportsFolderList
@@ -158,12 +230,16 @@ struct SidebarView: View {
         .sheet(item: $sportsFolderForEditSheet) { folder in
             AddFolderView(folder: folder)
         }
-        .alert("폴더 삭제", isPresented: $showingSportsDeleteAlert) {
-            Button("취소", role: .cancel) {
+        .alert(
+            Text(String(localized: "sidebar.folder.delete.title", defaultValue: "폴더 삭제")),
+            isPresented: $showingSportsDeleteAlert
+        ) {
+            Button(String(localized: "common.action.cancel", defaultValue: "취소"), role: .cancel) {
                 sportsFolderToDelete = nil
             }
-            Button("삭제", role: .destructive) {
+            Button(String(localized: "common.action.delete", defaultValue: "삭제"), role: .destructive) {
                 if let folder = sportsFolderToDelete {
+                    TicketImageStore.delete(paths: folder.savedTicketPaths)
                     if selectedSportsFolder?.id == folder.id {
                         selectedSportsFolder = nil
                     }
@@ -173,7 +249,14 @@ struct SidebarView: View {
             }
         } message: {
             if let folder = sportsFolderToDelete {
-                Text("'\(folder.displayName)' 폴더와 \(folder.matches.count)개의 경기 기록이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
+                Text(
+                    String(
+                        format: String(localized: "sidebar.folder.delete.sportsMessage", defaultValue: "‘%@’ 폴더와 %lld개의 경기 기록이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다."),
+                        locale: .autoupdatingCurrent,
+                        folder.displayName,
+                        Int64(folder.matches.count)
+                    )
+                )
             }
         }
         // 문화 폴더 시트
@@ -183,11 +266,14 @@ struct SidebarView: View {
         .sheet(item: $cultureFolderForEditSheet) { folder in
             AddCultureFolderView(folder: folder)
         }
-        .alert("폴더 삭제", isPresented: $showingCultureDeleteAlert) {
-            Button("취소", role: .cancel) {
+        .alert(
+            Text(String(localized: "sidebar.folder.delete.title", defaultValue: "폴더 삭제")),
+            isPresented: $showingCultureDeleteAlert
+        ) {
+            Button(String(localized: "common.action.cancel", defaultValue: "취소"), role: .cancel) {
                 cultureFolderToDelete = nil
             }
-            Button("삭제", role: .destructive) {
+            Button(String(localized: "common.action.delete", defaultValue: "삭제"), role: .destructive) {
                 if let folder = cultureFolderToDelete {
                     if selectedCultureFolder?.id == folder.id {
                         selectedCultureFolder = nil
@@ -198,7 +284,14 @@ struct SidebarView: View {
             }
         } message: {
             if let folder = cultureFolderToDelete {
-                Text("'\(folder.name)' 폴더와 \(folder.events.count)개의 기록이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
+                Text(
+                    String(
+                        format: String(localized: "sidebar.folder.delete.cultureMessage", defaultValue: "‘%@’ 폴더와 %lld개의 기록이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다."),
+                        locale: .autoupdatingCurrent,
+                        folder.name,
+                        Int64(folder.events.count)
+                    )
+                )
             }
         }
     }
@@ -224,10 +317,10 @@ struct SidebarView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(authService.userName.isEmpty ? "사용자" : authService.userName)
+                    Text(authService.isGuest ? String(localized: "auth.profile.guestName", defaultValue: "게스트") : (authService.userName.isEmpty ? String(localized: "auth.profile.userFallback", defaultValue: "사용자") : authService.userName))
                         .font(.headline)
                         .foregroundStyle(Color.primary)
-                    Text(authService.isSignedIn ? "Apple ID" : "게스트")
+                    Text(authService.isSignedIn ? String(localized: "auth.profile.appleID", defaultValue: "Apple ID") : String(localized: "auth.profile.guestBadge", defaultValue: "게스트"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -249,7 +342,7 @@ struct SidebarView: View {
     // MARK: - 스포츠 섹션 헤더
     private var sportsSectionHeader: some View {
         HStack {
-            Label("스포츠", systemImage: "sportscourt")
+            Label(String(localized: "category.sidebar.section.sports", defaultValue: "스포츠"), systemImage: "sportscourt")
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
             
@@ -269,6 +362,7 @@ struct SidebarView: View {
     private var sportsFolderList: some View {
         ForEach(sportsFolders) { folder in
             Button {
+                isTicketGallerySelected = false
                 selectedSportsFolder = folder
                 selectedCultureFolder = nil
                 activeSection = .sports
@@ -307,14 +401,14 @@ struct SidebarView: View {
                 Button {
                     sportsFolderForEditSheet = folder
                 } label: {
-                    Label("편집", systemImage: "pencil")
+                    Label(String(localized: "common.action.edit", defaultValue: "편집"), systemImage: "pencil")
                 }
                 
                 Button(role: .destructive) {
                     sportsFolderToDelete = folder
                     showingSportsDeleteAlert = true
                 } label: {
-                    Label("삭제", systemImage: "trash")
+                    Label(String(localized: "common.action.delete", defaultValue: "삭제"), systemImage: "trash")
                 }
             }
         }
@@ -323,7 +417,7 @@ struct SidebarView: View {
     // MARK: - 문화 섹션 헤더
     private var cultureSectionHeader: some View {
         HStack {
-            Label("문화", systemImage: "theatermasks")
+            Label(String(localized: "category.sidebar.section.culture", defaultValue: "문화"), systemImage: "theatermasks")
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
             
@@ -343,6 +437,7 @@ struct SidebarView: View {
     private var cultureFolderList: some View {
         ForEach(cultureFolders) { folder in
             Button {
+                isTicketGallerySelected = false
                 selectedCultureFolder = folder
                 selectedSportsFolder = nil
                 activeSection = .culture
@@ -381,17 +476,52 @@ struct SidebarView: View {
                 Button {
                     cultureFolderForEditSheet = folder
                 } label: {
-                    Label("편집", systemImage: "pencil")
+                    Label(String(localized: "common.action.edit", defaultValue: "편집"), systemImage: "pencil")
                 }
                 
                 Button(role: .destructive) {
                     cultureFolderToDelete = folder
                     showingCultureDeleteAlert = true
                 } label: {
-                    Label("삭제", systemImage: "trash")
+                    Label(String(localized: "common.action.delete", defaultValue: "삭제"), systemImage: "trash")
                 }
             }
         }
+    }
+    
+    private var ticketGalleryEntry: some View {
+        Button {
+            isTicketGallerySelected = true
+            withAnimation {
+                isSidebarVisible = false
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "ticket")
+                    .font(.title3)
+                    .frame(width: 28)
+                    .foregroundStyle(isTicketGallerySelected ? .blue : .secondary)
+
+                Text(String(localized: "ticket.gallery.sidebarEntry", defaultValue: "티켓 갤러리"))
+                    .font(.body)
+                    .fontWeight(isTicketGallerySelected ? .bold : .regular)
+                
+                Spacer()
+                
+                Text("\(savedTickets.count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                
+                if isTicketGallerySelected {
+                    Capsule()
+                        .frame(width: 3, height: 20)
+                        .foregroundColor(.blue)
+                }
+            }
+            .padding(.vertical, 8)
+            .foregroundColor(isTicketGallerySelected ? .blue : .primary)
+        }
+        .buttonStyle(.plain)
     }
     
 }
@@ -399,40 +529,48 @@ struct SidebarView: View {
 // MARK: - Main Content
 struct MainContentView: View {
     @Binding var isSidebarVisible: Bool
+    var isTicketGallerySelected: Bool
     var selectedSportsFolder: SportsFanFolder?
     var selectedCultureFolder: CultureFanFolder?
     var activeSection: ArchiveCategory
     
     private var navigationTitle: String {
+        if isTicketGallerySelected {
+            return String(localized: "ticket.gallery.navigationTitle", defaultValue: "티켓 갤러리")
+        }
         if let folder = selectedSportsFolder {
             return folder.displayName
         }
         if let folder = selectedCultureFolder {
             return folder.name
         }
-        return activeSection.rawValue
+        return activeSection.displayName
     }
     
     var body: some View {
         NavigationStack {
             Group {
-                if let folder = selectedSportsFolder {
+                if isTicketGallerySelected {
+                    TicketGalleryView()
+                } else if let folder = selectedSportsFolder {
                     SportsView(folder: folder)
                 } else if let folder = selectedCultureFolder {
                     CultureView(folder: folder)
                 } else {
                     switch activeSection {
                     case .sports:
-                        ContentUnavailableView(
-                            "팀을 추가해보세요",
+                        folderEmptyGuide(
+                            title: String(localized: "empty.sports.title", defaultValue: "팀을 추가해보세요"),
                             systemImage: "sportscourt",
-                            description: Text("사이드바에서 + 버튼을 눌러\n응원하는 팀 폴더를 만들어보세요!")
+                            description: String(localized: "empty.sports.detail", defaultValue: "사이드바에서 + 버튼을 눌러 응원하는 팀 폴더를 만들어보세요."),
+                            buttonTitle: String(localized: "empty.openSidebar.addFolder", defaultValue: "사이드바 열기")
                         )
                     case .culture:
-                        ContentUnavailableView(
-                            "관심사를 추가해보세요",
+                        folderEmptyGuide(
+                            title: String(localized: "empty.culture.title", defaultValue: "관심사를 추가해보세요"),
                             systemImage: "theatermasks",
-                            description: Text("사이드바에서 + 버튼을 눌러\n좋아하는 아티스트 폴더를 만들어보세요!")
+                            description: String(localized: "empty.culture.detail", defaultValue: "사이드바에서 + 버튼을 눌러 좋아하는 아티스트 폴더를 만들어보세요."),
+                            buttonTitle: String(localized: "empty.openSidebar.addFolder", defaultValue: "사이드바 열기")
                         )
                     }
                 }
@@ -453,6 +591,27 @@ struct MainContentView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func folderEmptyGuide(title: String, systemImage: String, description: String, buttonTitle: String) -> some View {
+        VStack(spacing: 24) {
+            ContentUnavailableView(
+                title,
+                systemImage: systemImage,
+                description: Text(description)
+            )
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    isSidebarVisible = true
+                }
+            } label: {
+                Label(buttonTitle, systemImage: "sidebar.left")
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
     }
 }
 

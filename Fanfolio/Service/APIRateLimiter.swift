@@ -61,15 +61,6 @@ final class APIRateLimiter {
         return true
     }
 
-    // MARK: - 수동 리셋 (디버그/테스트용)
-
-    func resetForTesting() {
-        callCount = 0
-        lastResetDate = Date()
-        persist()
-        Logger.api.debug("Rate limiter manually reset")
-    }
-
     // MARK: - 내부 메서드
 
     private func resetIfNewDay() {

@@ -2,20 +2,27 @@
 //  PlayerDetailView.swift
 //  Fanfolio
 //
-//  선수 상세 정보 화면. 누끼 사진, 기본 정보, 시즌 스탯을 표시하고
+//  선수 상세 정보 화면. 누끼 사진과 기본 정보를 표시하고
 //  하트 버튼으로 즐겨찾기 등록/해제가 가능합니다.
 
 import SwiftUI
+import Kingfisher
+
+private struct PlayerInfoRow: Identifiable {
+    let id = UUID()
+    let title: LocalizedStringKey
+    let value: String
+}
 
 struct PlayerDetailView: View {
     let player: PlayerInfo
-    let sportType: SportType
     let folder: SportsFanFolder?
 
     @State private var favorites = FavoritePlayersManager.shared
 
     private var playerIDString: String { "\(player.id)" }
-    private var isFavorite: Bool { favorites.isFavorite(playerIDString) }
+    private var folderKey: String { folder?.folderID.uuidString ?? "__no_folder__" }
+    private var isFavorite: Bool { favorites.isFavorite(playerIDString, inFolder: folderKey) }
 
     private var teamColor: Color {
         Color.from(hex: folder?.teamColor) ?? .blue
@@ -35,13 +42,6 @@ struct PlayerDetailView: View {
                 infoCard
                     .padding(.horizontal)
                     .padding(.bottom, 16)
-
-                // 스탯 카드 (있을 때만)
-                if let stats = player.stats {
-                    statsCard(stats: stats)
-                        .padding(.horizontal)
-                        .padding(.bottom, 16)
-                }
             }
             .padding(.vertical)
         }
@@ -52,7 +52,7 @@ struct PlayerDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        favorites.toggleFavorite(playerIDString)
+                        favorites.toggleFavorite(playerIDString, inFolder: folderKey)
                     }
                 } label: {
                     Image(systemName: isFavorite ? "heart.fill" : "heart")
@@ -64,7 +64,7 @@ struct PlayerDetailView: View {
         }
     }
 
-    // MARK: - 히어로 섹션 (누끼 사진 + 이름 + 즐겨찾기 배지)
+    // MARK: - 히어로 섹션 (선수 사진 + 이름 + 즐겨찾기 배지)
 
     private var heroSection: some View {
         ZStack(alignment: .bottom) {
@@ -77,37 +77,15 @@ struct PlayerDetailView: View {
             .frame(maxWidth: .infinity)
             .frame(height: 280)
 
-            // 누끼 or 일반 사진
+            // 선수 사진
             VStack(spacing: 0) {
-                if let cutoutStr = player.cutoutImageURL, let url = URL(string: cutoutStr) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: 240)
-                        case .empty:
-                            playerPlaceholder
-                        default:
-                            playerPlaceholder
-                        }
-                    }
-                } else if let photoStr = player.photoURL, let url = URL(string: photoStr) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 180, height: 180)
-                                .clipShape(Circle())
-                                .overlay(Circle().strokeBorder(.white.opacity(0.3), lineWidth: 2))
-                                .padding(.top, 40)
-                        default:
-                            playerPlaceholder
-                        }
-                    }
+                if let imgStr = player.imageURL, let url = URL(string: imgStr) {
+                    KFImage.url(url)
+                        .placeholder { playerPlaceholder }
+                        .onFailureView { playerPlaceholder }
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 240)
                 } else {
                     playerPlaceholder
                 }
@@ -161,19 +139,53 @@ struct PlayerDetailView: View {
         .clipped()
     }
 
-    // MARK: - 플레이스홀더
+    // MARK: - 플레이스홀더 (유니폼 실루엣 + 이니셜 + 등번호)
 
     private var playerPlaceholder: some View {
         ZStack {
             Circle()
                 .fill(Color.white.opacity(0.15))
                 .frame(width: 120, height: 120)
-            Image(systemName: "person.fill")
-                .font(.system(size: 50))
-                .foregroundStyle(.white.opacity(0.6))
+
+            // 종목별 유니폼 실루엣
+            Group {
+                if folder?.sportType == .basketball {
+                    BasketballJerseyShape()
+                        .fill(Color.white.opacity(0.18))
+                } else {
+                    ShortSleeveJerseyShape()
+                        .fill(Color.white.opacity(0.18))
+                }
+            }
+            .frame(width: 72, height: 72)
+
+            VStack(spacing: 2) {
+                if let num = player.number, !num.isEmpty {
+                    Text("#\(num)")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(teamColor.opacity(0.9))
+                }
+                Text(extractInitials(from: player.name))
+                    .font(.system(
+                        size: player.number == nil ? 44 : 36,
+                        weight: .heavy,
+                        design: .rounded
+                    ))
+                    .foregroundStyle(.white)
+            }
         }
         .padding(.top, 60)
         .padding(.bottom, 60)
+    }
+
+    private func extractInitials(from name: String) -> String {
+        let parts = name.components(separatedBy: " ").filter { !$0.isEmpty }
+        if parts.count >= 2 {
+            return (String(parts[0].prefix(1)) + String((parts.last ?? "").prefix(1))).uppercased()
+        } else if let first = parts.first {
+            return String(first.prefix(2)).uppercased()
+        }
+        return "?"
     }
 
     // MARK: - 기본 정보 카드
@@ -185,22 +197,22 @@ struct PlayerDetailView: View {
 
             Divider()
 
-            let rows: [(String, String?)] = [
-                ("이름", player.name),
-                ("포지션", player.position),
-                ("등번호", player.number.map { "#\($0)" }),
-                ("나이", player.age.map { "\($0)세" }),
-                ("국적", player.nationality),
-                ("소속팀", player.teamName)
-            ]
+            let validRows: [PlayerInfoRow] = [
+                PlayerInfoRow(title: "이름", value: player.name),
+                player.position.map { PlayerInfoRow(title: "포지션", value: $0) },
+                player.number.map { PlayerInfoRow(title: "등번호", value: "#\($0)") },
+                player.age.map { PlayerInfoRow(title: "나이", value: "\($0)") },
+                player.nationality.map { PlayerInfoRow(title: "국적", value: $0) },
+                player.teamName.map { PlayerInfoRow(title: "소속팀", value: $0) }
+            ].compactMap { $0 }
 
-            ForEach(rows.filter { $0.1 != nil }, id: \.0) { label, value in
+            ForEach(validRows) { row in
                 HStack {
-                    Text(label)
+                    Text(row.title)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .frame(width: 60, alignment: .leading)
-                    Text(value ?? "")
+                    Text(row.value)
                         .font(.subheadline.weight(.medium))
                 }
             }
@@ -209,68 +221,6 @@ struct PlayerDetailView: View {
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(uiColor: .secondarySystemBackground))
-        )
-    }
-
-    // MARK: - 스탯 카드
-
-    private func statsCard(stats: PlayerSeasonStats) -> some View {
-        let highlights = stats.highlights(for: sportType)
-        guard !highlights.isEmpty else { return AnyView(EmptyView()) }
-
-        return AnyView(
-            VStack(alignment: .leading, spacing: 14) {
-                Label("시즌 스탯", systemImage: "chart.bar.fill")
-                    .font(.subheadline.bold())
-
-                Divider()
-
-                // 게임 수 (있을 때)
-                if let games = stats.gamesPlayed {
-                    HStack {
-                        Text("출전 경기")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text("\(games)경기")
-                            .font(.subheadline.weight(.semibold))
-                    }
-                }
-
-                // 핵심 스탯 그리드
-                LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: min(highlights.count, 3)),
-                    spacing: 12
-                ) {
-                    ForEach(highlights, id: \.0) { label, value in
-                        statCell(label: label, value: value)
-                    }
-                }
-            }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(uiColor: .secondarySystemBackground))
-            )
-        )
-    }
-
-    private func statCell(label: String, value: String) -> some View {
-        VStack(spacing: 6) {
-            Text(value)
-                .font(.system(size: 24, weight: .heavy, design: .rounded))
-                .foregroundStyle(teamColor)
-                .monospacedDigit()
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(teamColor.opacity(0.07))
         )
     }
 }
@@ -285,46 +235,11 @@ struct PlayerDetailView: View {
                 name: "Nick Bosa",
                 position: "DE",
                 number: "97",
-                cutoutImageURL: nil,
-                photoURL: nil,
+                imageURL: nil,
                 nationality: "American",
                 age: 26,
-                teamName: "San Francisco 49ers",
-                stats: PlayerSeasonStats(
-                    gamesPlayed: 16,
-                    passingTouchdowns: nil,
-                    passingYards: nil,
-                    rushingTouchdowns: nil,
-                    rushingYards: nil,
-                    receptions: nil,
-                    receivingYards: nil,
-                    receivingTouchdowns: nil,
-                    sacks: 9.5,
-                    interceptions: 1,
-                    goals: nil,
-                    assists: nil,
-                    yellowCards: nil,
-                    redCards: nil,
-                    minutesPlayed: nil,
-                    shotsOnTarget: nil,
-                    points: nil,
-                    rebounds: nil,
-                    basketballAssists: nil,
-                    steals: nil,
-                    blocks: nil,
-                    battingAvg: nil,
-                    homeRuns: nil,
-                    rbi: nil,
-                    era: nil,
-                    strikeouts: nil,
-                    wins: nil,
-                    raceWins: nil,
-                    podiums: nil,
-                    championshipPoints: nil,
-                    polePositions: nil
-                )
+                teamName: "San Francisco 49ers"
             ),
-            sportType: .americanFootball,
             folder: nil
         )
     }

@@ -144,7 +144,7 @@ struct CultureView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
                         .foregroundStyle(.yellow)
-                    Text(String(format: "%.1f", averageRating))
+                    Text("\(averageRating, format: .number.precision(.fractionLength(1)))")
                         .font(.system(size: 36, weight: .heavy, design: .rounded))
                         .foregroundStyle(.primary)
                 }
@@ -220,7 +220,7 @@ struct CultureView: View {
     }
     
     // MARK: - 문화팬 칭호
-    private var cultureTitle: (emoji: String, title: String) {
+    private var cultureTitle: (emoji: String, title: LocalizedStringKey) {
         switch totalCompleted {
         case 50...: return ("👑", "문화계의 왕")
         case 30..<50: return ("🎭", "문화 마니아")
@@ -242,7 +242,7 @@ struct CultureView: View {
     }
     
     // MARK: - 섹션 헤더
-    private func sectionHeader(title: String, iconName: String, count: Int) -> some View {
+    private func sectionHeader(title: LocalizedStringKey, iconName: String, count: Int) -> some View {
         HStack {
             Label(title, systemImage: iconName)
                 .font(.caption.bold())
@@ -281,6 +281,7 @@ struct CultureView: View {
             }
             Button("삭제", role: .destructive) {
                 if let event = eventToDelete {
+                    ArchivePhotoStore.delete(paths: event.photoPaths ?? [])
                     withAnimation {
                         modelContext.delete(event)
                     }
@@ -301,8 +302,8 @@ private struct CultureEventCard: View {
     
     private static let dateFormatter: DateFormatter = {
         let fmt = DateFormatter()
-        fmt.dateFormat = "M월 d일 (E)"
-        fmt.locale = Locale(identifier: "ko_KR")
+        fmt.locale = Locale.autoupdatingCurrent
+        fmt.setLocalizedDateFormatFromTemplate("MMMdEEE")
         return fmt
     }()
     
@@ -347,13 +348,13 @@ private struct CultureEventCard: View {
                         .foregroundStyle(.blue)
                 }
                 
-                Label(cultureType.rawValue, systemImage: cultureType.iconName)
+                Label(cultureType.displayName, systemImage: cultureType.iconName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 
                 Spacer()
                 
-                Text(event.eventStatus.rawValue)
+                Text(event.eventStatus.displayName)
                     .font(.caption.bold())
                     .foregroundStyle(.blue)
                     .padding(.horizontal, 8)
@@ -420,7 +421,7 @@ private struct CultureEventCard: View {
         VStack(spacing: 0) {
             // 상단: 카테고리 + 별점
             HStack {
-                Label(cultureType.rawValue, systemImage: cultureType.iconName)
+                Label(cultureType.displayName, systemImage: cultureType.iconName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 

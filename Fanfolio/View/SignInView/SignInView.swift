@@ -32,15 +32,15 @@ struct SignInView: View {
                     Text("Fanfolio")
                         .font(.system(size: 36, weight: .heavy, design: .rounded))
                     
-                    Text("나만의 팬 아카이브")
+                    Text(String(localized: "auth.tagline", defaultValue: "나만의 팬 아카이브"))
                         .font(.title3.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
                 
                 VStack(spacing: 6) {
-                    featureRow(icon: "sportscourt", text: "직관 경기를 기록하고 승률을 확인하세요")
-                    featureRow(icon: "theatermasks", text: "콘서트, 뮤지컬 관람을 아카이빙하세요")
-                    featureRow(icon: "square.and.arrow.up", text: "티켓 이미지로 추억을 공유하세요")
+                    featureRow(icon: "sportscourt", text: String(localized: "auth.feature.sportsRecord", defaultValue: "직관 경기를 기록하고 승률을 확인하세요"))
+                    featureRow(icon: "theatermasks", text: String(localized: "auth.feature.cultureArchive", defaultValue: "콘서트, 뮤지컬 관람을 아카이빙하세요"))
+                    featureRow(icon: "square.and.arrow.up", text: String(localized: "auth.feature.shareTickets", defaultValue: "티켓 이미지로 추억을 공유하세요"))
                 }
                 .padding(.top, 12)
             }
@@ -90,14 +90,14 @@ struct SignInView: View {
                 Button {
                     authService.continueAsGuest()
                 } label: {
-                    Text("로그인 없이 시작")
+                    Text(String(localized: "auth.continueAsGuest", defaultValue: "로그인 없이 시작"))
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                 }
                 
-                Text("로그인 없이도 모든 기능을 사용할 수 있습니다.\niCloud 동기화는 기기 설정에서 자동으로 작동합니다.")
+                Text(String(localized: "auth.guestModeDisclaimer", defaultValue: "로그인 없이도 모든 기능을 사용할 수 있습니다.\niCloud 동기화는 기기 설정에서 자동으로 작동합니다."))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)

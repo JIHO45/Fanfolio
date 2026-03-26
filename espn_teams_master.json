@@ -828,294 +828,6 @@
         "league": "NFL"
     },
     {
-        "id": "25",
-        "name_en": "Anaheim Ducks",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/ana.png",
-        "color": "fc4c02",
-        "alternate_color": "000000",
-        "league": "NHL"
-    },
-    {
-        "id": "1",
-        "name_en": "Boston Bruins",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/bos.png",
-        "color": "231f20",
-        "alternate_color": "fdb71a",
-        "league": "NHL"
-    },
-    {
-        "id": "2",
-        "name_en": "Buffalo Sabres",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/buf.png",
-        "color": "00468b",
-        "alternate_color": "fdb71a",
-        "league": "NHL"
-    },
-    {
-        "id": "3",
-        "name_en": "Calgary Flames",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/cgy.png",
-        "color": "dd1a32",
-        "alternate_color": "000000",
-        "league": "NHL"
-    },
-    {
-        "id": "7",
-        "name_en": "Carolina Hurricanes",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/car.png",
-        "color": "e30426",
-        "alternate_color": "000000",
-        "league": "NHL"
-    },
-    {
-        "id": "4",
-        "name_en": "Chicago Blackhawks",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/chi.png",
-        "color": "e31937",
-        "alternate_color": "000000",
-        "league": "NHL"
-    },
-    {
-        "id": "17",
-        "name_en": "Colorado Avalanche",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/col.png",
-        "color": "860038",
-        "alternate_color": "005ea3",
-        "league": "NHL"
-    },
-    {
-        "id": "29",
-        "name_en": "Columbus Blue Jackets",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/cbj.png",
-        "color": "002d62",
-        "alternate_color": "e31937",
-        "league": "NHL"
-    },
-    {
-        "id": "9",
-        "name_en": "Dallas Stars",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/dal.png",
-        "color": "20864c",
-        "alternate_color": "000000",
-        "league": "NHL"
-    },
-    {
-        "id": "5",
-        "name_en": "Detroit Red Wings",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/det.png",
-        "color": "e30526",
-        "alternate_color": "ffffff",
-        "league": "NHL"
-    },
-    {
-        "id": "6",
-        "name_en": "Edmonton Oilers",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/edm.png",
-        "color": "00205b",
-        "alternate_color": "ff4c00",
-        "league": "NHL"
-    },
-    {
-        "id": "26",
-        "name_en": "Florida Panthers",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/fla.png",
-        "color": "e51937",
-        "alternate_color": "002d62",
-        "league": "NHL"
-    },
-    {
-        "id": "8",
-        "name_en": "Los Angeles Kings",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/la.png",
-        "color": "121212",
-        "alternate_color": "a2aaad",
-        "league": "NHL"
-    },
-    {
-        "id": "30",
-        "name_en": "Minnesota Wild",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/min.png",
-        "color": "124734",
-        "alternate_color": "ae122a",
-        "league": "NHL"
-    },
-    {
-        "id": "10",
-        "name_en": "Montreal Canadiens",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/mtl.png",
-        "color": "c41230",
-        "alternate_color": "013a81",
-        "league": "NHL"
-    },
-    {
-        "id": "27",
-        "name_en": "Nashville Predators",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/nsh.png",
-        "color": "fdba31",
-        "alternate_color": "002d62",
-        "league": "NHL"
-    },
-    {
-        "id": "11",
-        "name_en": "New Jersey Devils",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/nj.png",
-        "color": "e30b2b",
-        "alternate_color": "000000",
-        "league": "NHL"
-    },
-    {
-        "id": "12",
-        "name_en": "New York Islanders",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/nyi.png",
-        "color": "00529b",
-        "alternate_color": "f47d31",
-        "league": "NHL"
-    },
-    {
-        "id": "13",
-        "name_en": "New York Rangers",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/nyr.png",
-        "color": "0056ae",
-        "alternate_color": "e51937",
-        "league": "NHL"
-    },
-    {
-        "id": "14",
-        "name_en": "Ottawa Senators",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/ott.png",
-        "color": "dd1a32",
-        "alternate_color": "b79257",
-        "league": "NHL"
-    },
-    {
-        "id": "15",
-        "name_en": "Philadelphia Flyers",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/phi.png",
-        "color": "fe5823",
-        "alternate_color": "000000",
-        "league": "NHL"
-    },
-    {
-        "id": "16",
-        "name_en": "Pittsburgh Penguins",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/pit.png",
-        "color": "000000",
-        "alternate_color": "fdb71a",
-        "league": "NHL"
-    },
-    {
-        "id": "18",
-        "name_en": "San Jose Sharks",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/sj.png",
-        "color": "00788a",
-        "alternate_color": "070707",
-        "league": "NHL"
-    },
-    {
-        "id": "124292",
-        "name_en": "Seattle Kraken",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/sea.png",
-        "color": "000d33",
-        "alternate_color": "a3dce4",
-        "league": "NHL"
-    },
-    {
-        "id": "19",
-        "name_en": "St. Louis Blues",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/stl.png",
-        "color": "0070b9",
-        "alternate_color": "fdb71a",
-        "league": "NHL"
-    },
-    {
-        "id": "20",
-        "name_en": "Tampa Bay Lightning",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/tb.png",
-        "color": "003e7e",
-        "alternate_color": "ffffff",
-        "league": "NHL"
-    },
-    {
-        "id": "21",
-        "name_en": "Toronto Maple Leafs",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/tor.png",
-        "color": "003e7e",
-        "alternate_color": "ffffff",
-        "league": "NHL"
-    },
-    {
-        "id": "129764",
-        "name_en": "Utah Mammoth",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/utah.png",
-        "color": "000000",
-        "alternate_color": "7ab2e1",
-        "league": "NHL"
-    },
-    {
-        "id": "22",
-        "name_en": "Vancouver Canucks",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/van.png",
-        "color": "003e7e",
-        "alternate_color": "008752",
-        "league": "NHL"
-    },
-    {
-        "id": "37",
-        "name_en": "Vegas Golden Knights",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/vgk.png",
-        "color": "344043",
-        "alternate_color": "b4975a",
-        "league": "NHL"
-    },
-    {
-        "id": "23",
-        "name_en": "Washington Capitals",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/wsh.png",
-        "color": "d71830",
-        "alternate_color": "0b1f41",
-        "league": "NHL"
-    },
-    {
-        "id": "28",
-        "name_en": "Winnipeg Jets",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/nhl/500/wpg.png",
-        "color": "002d62",
-        "alternate_color": "c41230",
-        "league": "NHL"
-    },
-    {
         "id": "349",
         "name_en": "AFC Bournemouth",
         "name_kr": "",
@@ -2250,85 +1962,13 @@
         "league": "USA.1"
     },
     {
-        "id": "174",
-        "name_en": "AS Monaco",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/174.png",
-        "color": "E91514",
-        "alternate_color": "004c37",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
         "id": "139",
         "name_en": "Ajax Amsterdam",
         "name_kr": "",
         "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/139.png",
         "color": "DF1B27",
         "alternate_color": "4d6286",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "359",
-        "name_en": "Arsenal",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/359.png",
-        "color": "e20520",
-        "alternate_color": "132257",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "105",
-        "name_en": "Atalanta",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/105.png",
-        "color": "1157bf",
-        "alternate_color": "ffffff",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "93",
-        "name_en": "Athletic Club",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/93.png",
-        "color": "C8142F",
-        "alternate_color": "0000ff",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "1068",
-        "name_en": "Atlético Madrid",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/1068.png",
-        "color": "ca3624",
-        "alternate_color": "c3c3c3",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "83",
-        "name_en": "Barcelona",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/83.png",
-        "color": "00529f",
-        "alternate_color": "2f2f2f",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "131",
-        "name_en": "Bayer Leverkusen",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/131.png",
-        "color": "DA0308",
-        "alternate_color": "f9fbfc",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "132",
-        "name_en": "Bayern Munich",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/132.png",
-        "color": "dc052d",
-        "alternate_color": "1a1a1a",
-        "league": "UEFA.CHAMPIONS"
+        "league": "NED.1"
     },
     {
         "id": "1929",
@@ -2337,34 +1977,7 @@
         "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/1929.png",
         "color": "ca281d",
         "alternate_color": "1a1a1a",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "2980",
-        "name_en": "Bodo/Glimt",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/2980.png",
-        "color": "FCEE33",
-        "alternate_color": "ffffff",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "124",
-        "name_en": "Borussia Dortmund",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/124.png",
-        "color": "ffee00",
-        "alternate_color": "272726",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "363",
-        "name_en": "Chelsea",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/363.png",
-        "color": "144992",
-        "alternate_color": "ffeeee",
-        "league": "UEFA.CHAMPIONS"
+        "league": "POR.1"
     },
     {
         "id": "570",
@@ -2373,16 +1986,7 @@
         "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/570.png",
         "color": "0081ff",
         "alternate_color": "ffffff",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "125",
-        "name_en": "Eintracht Frankfurt",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/125.png",
-        "color": "ffffff",
-        "alternate_color": "272726",
-        "league": "UEFA.CHAMPIONS"
+        "league": "BEL.1"
     },
     {
         "id": "909",
@@ -2391,16 +1995,7 @@
         "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/909.png",
         "color": "ffffff",
         "alternate_color": "1a1a1a",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "10414",
-        "name_en": "FK Qarabag",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/10414.png",
-        "color": "000000",
-        "alternate_color": "ffffff",
-        "league": "UEFA.CHAMPIONS"
+        "league": "DEN.1"
     },
     {
         "id": "432",
@@ -2409,79 +2004,7 @@
         "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/432.png",
         "color": "aa0031",
         "alternate_color": "ffffff",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "110",
-        "name_en": "Internazionale",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/110.png",
-        "color": "00239c",
-        "alternate_color": "ffffff",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "111",
-        "name_en": "Juventus",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/111.png",
-        "color": "000000",
-        "alternate_color": "ffef32",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "2528",
-        "name_en": "Kairat Almaty",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/2528.png",
-        "color": "FCEE33",
-        "alternate_color": "81c0ff",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "364",
-        "name_en": "Liverpool",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/364.png",
-        "color": "d11317",
-        "alternate_color": "132257",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "382",
-        "name_en": "Manchester City",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/382.png",
-        "color": "99c5ea",
-        "alternate_color": "e6ff00",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "176",
-        "name_en": "Marseille",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/176.png",
-        "color": "ffffff",
-        "alternate_color": "011F68",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "114",
-        "name_en": "Napoli",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/114.png",
-        "color": "0677d2",
-        "alternate_color": "ffffff",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "361",
-        "name_en": "Newcastle United",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/361.png",
-        "color": "000000",
-        "alternate_color": "cd1937",
-        "league": "UEFA.CHAMPIONS"
+        "league": "TUR.1"
     },
     {
         "id": "435",
@@ -2490,7 +2013,7 @@
         "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/435.png",
         "color": "d01729",
         "alternate_color": "0202fb",
-        "league": "UEFA.CHAMPIONS"
+        "league": "GRE.1"
     },
     {
         "id": "148",
@@ -2499,34 +2022,7 @@
         "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/148.png",
         "color": "ef2f24",
         "alternate_color": "000000",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "22281",
-        "name_en": "Pafos",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/22281.png",
-        "color": "82c0fe",
-        "alternate_color": "003399",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "160",
-        "name_en": "Paris Saint-Germain",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/160.png",
-        "color": "011F68",
-        "alternate_color": "ffffff",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "86",
-        "name_en": "Real Madrid",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/86.png",
-        "color": "ffffff",
-        "alternate_color": "f28800",
-        "league": "UEFA.CHAMPIONS"
+        "league": "NED.1"
     },
     {
         "id": "494",
@@ -2535,7 +2031,7 @@
         "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/494.png",
         "color": "dc1f26",
         "alternate_color": "81c0ff",
-        "league": "UEFA.CHAMPIONS"
+        "league": "CZE.1"
     },
     {
         "id": "2250",
@@ -2544,34 +2040,7 @@
         "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/2250.png",
         "color": "008127",
         "alternate_color": "ffffff",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "367",
-        "name_en": "Tottenham Hotspur",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/367.png",
-        "color": "ffffff",
-        "alternate_color": "9bafd8",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "5807",
-        "name_en": "Union St.-Gilloise",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/5807.png",
-        "color": "FCEE33",
-        "alternate_color": "ffffff",
-        "league": "UEFA.CHAMPIONS"
-    },
-    {
-        "id": "102",
-        "name_en": "Villarreal",
-        "name_kr": "",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/soccer/500/102.png",
-        "color": "ffff00",
-        "alternate_color": "6cace4",
-        "league": "UEFA.CHAMPIONS"
+        "league": "POR.1"
     },
     {
         "id": "kbo_1",
@@ -2662,248 +2131,5 @@
         "color": "ea0029",
         "alternate_color": "000000",
         "league": "KBO"
-    },
-    {
-        "id": "kleague_1",
-        "name_en": "Jeonbuk Hyundai Motors",
-        "name_kr": "전북 현대",
-        "logo_url": "https://upload.wikimedia.org/wikipedia/en/thumb/6/6e/Jeonbuk_Hyundai_Motors_FC.png/180px-Jeonbuk_Hyundai_Motors_FC.png",
-        "color": "004b8d",
-        "alternate_color": "ffdd00",
-        "league": "KOR.1"
-    },
-    {
-        "id": "kleague_2",
-        "name_en": "Ulsan HD FC",
-        "name_kr": "울산 HD",
-        "logo_url": "https://upload.wikimedia.org/wikipedia/en/thumb/0/0f/Ulsan_Hyundai_FC_logo.png/180px-Ulsan_Hyundai_FC_logo.png",
-        "color": "005bac",
-        "alternate_color": "f5a623",
-        "league": "KOR.1"
-    },
-    {
-        "id": "kleague_3",
-        "name_en": "Pohang Steelers",
-        "name_kr": "포항 스틸러스",
-        "logo_url": "https://upload.wikimedia.org/wikipedia/en/thumb/d/df/Pohang_Steelers.png/180px-Pohang_Steelers.png",
-        "color": "d10a11",
-        "alternate_color": "000000",
-        "league": "KOR.1"
-    },
-    {
-        "id": "kleague_4",
-        "name_en": "FC Seoul",
-        "name_kr": "FC 서울",
-        "logo_url": "https://upload.wikimedia.org/wikipedia/en/thumb/4/42/FC_Seoul_Logo.png/180px-FC_Seoul_Logo.png",
-        "color": "c8102e",
-        "alternate_color": "003f87",
-        "league": "KOR.1"
-    },
-    {
-        "id": "kleague_5",
-        "name_en": "Suwon Samsung Bluewings",
-        "name_kr": "수원 삼성",
-        "logo_url": "https://upload.wikimedia.org/wikipedia/en/thumb/9/9c/Suwon_Samsung_Bluewings_logo.svg/180px-Suwon_Samsung_Bluewings_logo.svg.png",
-        "color": "004b8d",
-        "alternate_color": "c0c0c0",
-        "league": "KOR.1"
-    },
-    {
-        "id": "kleague_6",
-        "name_en": "Seongnam FC",
-        "name_kr": "성남 FC",
-        "logo_url": "https://upload.wikimedia.org/wikipedia/en/thumb/3/3e/Seongnam_FC_logo.png/180px-Seongnam_FC_logo.png",
-        "color": "000000",
-        "alternate_color": "ffdd00",
-        "league": "KOR.1"
-    },
-    {
-        "id": "kleague_7",
-        "name_en": "Incheon United",
-        "name_kr": "인천 유나이티드",
-        "logo_url": "https://upload.wikimedia.org/wikipedia/en/thumb/1/13/Incheon_United_FC.png/180px-Incheon_United_FC.png",
-        "color": "003087",
-        "alternate_color": "d4af37",
-        "league": "KOR.1"
-    },
-    {
-        "id": "kleague_8",
-        "name_en": "Daegu FC",
-        "name_kr": "대구 FC",
-        "logo_url": "https://upload.wikimedia.org/wikipedia/en/thumb/4/44/Daegu_FC.png/180px-Daegu_FC.png",
-        "color": "003f87",
-        "alternate_color": "ef3340",
-        "league": "KOR.1"
-    },
-    {
-        "id": "kleague_9",
-        "name_en": "Gwangju FC",
-        "name_kr": "광주 FC",
-        "logo_url": "https://upload.wikimedia.org/wikipedia/en/thumb/2/2e/Gwangju_FC_logo.png/180px-Gwangju_FC_logo.png",
-        "color": "ffb81c",
-        "alternate_color": "000000",
-        "league": "KOR.1"
-    },
-    {
-        "id": "kleague_10",
-        "name_en": "Jeju United",
-        "name_kr": "제주 유나이티드",
-        "logo_url": "https://upload.wikimedia.org/wikipedia/en/thumb/3/35/Jeju_United_FC_logo.png/180px-Jeju_United_FC_logo.png",
-        "color": "f47920",
-        "alternate_color": "000000",
-        "league": "KOR.1"
-    },
-    {
-        "id": "kleague_11",
-        "name_en": "Gangwon FC",
-        "name_kr": "강원 FC",
-        "logo_url": "https://upload.wikimedia.org/wikipedia/en/thumb/0/04/Gangwon_FC.png/180px-Gangwon_FC.png",
-        "color": "003f87",
-        "alternate_color": "ffdd00",
-        "league": "KOR.1"
-    },
-    {
-        "id": "kleague_12",
-        "name_en": "Gimcheon Sangmu",
-        "name_kr": "김천 상무",
-        "logo_url": "https://upload.wikimedia.org/wikipedia/en/thumb/4/42/Gimcheon_Sangmu_FC.png/180px-Gimcheon_Sangmu_FC.png",
-        "color": "003087",
-        "alternate_color": "c0c0c0",
-        "league": "KOR.1"
-    },
-    {
-        "id": "ufc_org",
-        "name_en": "UFC",
-        "name_kr": "UFC",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png",
-        "color": "D20A0A",
-        "alternate_color": "1A1A1A",
-        "league": "UFC"
-    },
-    {
-        "id": "atp_org",
-        "name_en": "ATP Tour",
-        "name_kr": "ATP 투어",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/tennis/500/atp.png",
-        "color": "00205B",
-        "alternate_color": "005EB8",
-        "league": "ATP"
-    },
-    {
-        "id": "wta_org",
-        "name_en": "WTA Tour",
-        "name_kr": "WTA 투어",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/tennis/500/wta.png",
-        "color": "C0006C",
-        "alternate_color": "7A0044",
-        "league": "WTA"
-    },
-    {
-        "id": "pga_org",
-        "name_en": "PGA Tour",
-        "name_kr": "PGA 투어",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/golf/500/pga.png",
-        "color": "004F2D",
-        "alternate_color": "006633",
-        "league": "PGA"
-    },
-    {
-        "id": "106921",
-        "name_en": "Red Bull Racing",
-        "name_kr": "레드불 레이싱",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/f1/500/red_bull.png",
-        "color": "00327D",
-        "alternate_color": "FFDA00",
-        "league": "F1"
-    },
-    {
-        "id": "106842",
-        "name_en": "Ferrari",
-        "name_kr": "페라리",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/f1/500/ferrari.png",
-        "color": "DC0000",
-        "alternate_color": "FFFFFF",
-        "league": "F1"
-    },
-    {
-        "id": "106893",
-        "name_en": "Mercedes",
-        "name_kr": "메르세데스",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/f1/500/mercedes.png",
-        "color": "00D2BE",
-        "alternate_color": "000000",
-        "league": "F1"
-    },
-    {
-        "id": "106892",
-        "name_en": "McLaren",
-        "name_kr": "맥라렌",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/f1/500/mclaren.png",
-        "color": "FF8700",
-        "alternate_color": "000000",
-        "league": "F1"
-    },
-    {
-        "id": "123986",
-        "name_en": "Aston Martin",
-        "name_kr": "애스턴 마틴",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/f1/500/aston_martin.png",
-        "color": "006F62",
-        "alternate_color": "CEDC00",
-        "league": "F1"
-    },
-    {
-        "id": "106922",
-        "name_en": "Alpine",
-        "name_kr": "알핀",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/f1/500/alpine.png",
-        "color": "0090FF",
-        "alternate_color": "FF0090",
-        "league": "F1"
-    },
-    {
-        "id": "106967",
-        "name_en": "Williams",
-        "name_kr": "윌리엄스",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/f1/500/williams.png",
-        "color": "005AFF",
-        "alternate_color": "FFFFFF",
-        "league": "F1"
-    },
-    {
-        "id": "111427",
-        "name_en": "Haas",
-        "name_kr": "하스",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/f1/500/haas.png",
-        "color": "5A5A5A",
-        "alternate_color": "B6BABD",
-        "league": "F1"
-    },
-    {
-        "id": "132212",
-        "name_en": "Audi",
-        "name_kr": "아우디",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/f1/500/audi.png",
-        "color": "C0C0C0",
-        "alternate_color": "000000",
-        "league": "F1"
-    },
-    {
-        "id": "123988",
-        "name_en": "Racing Bulls",
-        "name_kr": "레이싱 불스",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/f1/500/rb.png",
-        "color": "1434CB",
-        "alternate_color": "FFFFFF",
-        "league": "F1"
-    },
-    {
-        "id": "132211",
-        "name_en": "Cadillac",
-        "name_kr": "캐딜락",
-        "logo_url": "https://a.espncdn.com/i/teamlogos/f1/500/cadillac.png",
-        "color": "0056A2",
-        "alternate_color": "FFFFFF",
-        "league": "F1"
     }
 ]

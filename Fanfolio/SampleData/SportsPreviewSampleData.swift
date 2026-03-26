@@ -15,8 +15,7 @@ class SportsPreviewSampleData {
         do {
             let config = ModelConfiguration(isStoredInMemoryOnly: true)
             let container = try ModelContainer(
-                for: SportsFanFolder.self, SportsModel.self,
-                F1RaceModel.self, GolfRoundModel.self,
+                for: SportsFanFolder.self, SportsModel.self, SavedTicket.self,
                 CultureFanFolder.self, CultureModel.self,
                 configurations: config
             )

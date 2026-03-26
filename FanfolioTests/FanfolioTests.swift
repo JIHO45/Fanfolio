@@ -7,9 +7,7 @@
 //
 //  다른 테스트 파일들:
 //  → FanStatsCalculatorTests.swift  — 팬 통계 계산기 (승률, 연승 등)
-//  → GolfRoundModelTests.swift      — 골프 라운드 계산 프로퍼티
 //  → LiveFixtureStatusTests.swift   — API 경기 상태 코드 변환
-//  → PlayerSeasonStatsTests.swift   — 선수 시즌 스텟 하이라이트
 //
 
 import Testing
@@ -69,30 +67,76 @@ struct SportTypePeriodLabelsTests {
         #expect(labels.last  == "9회")
     }
 
-    @Test("아이스하키 3피리어드 레이블")
-    func hockeyThreePeriods() {
-        let labels = SportType.hockey.periodLabels(count: 3)
-        #expect(labels == ["1P", "2P", "3P"])
+}
+
+// MARK: - SportsFanFolder displayName 테스트
+
+/// `SportsFanFolder.displayName` 계산 프로퍼티를 검증합니다.
+///
+/// 애칭(teamNickname)이 있으면 애칭을, 없으면 공식 팀 이름(name)을 반환합니다.
+@Suite("SportsFanFolder — displayName")
+struct SportsFanFolderDisplayNameTests {
+
+    @Test("애칭 없으면 공식 이름 반환")
+    func displayNameFallsBackToName() {
+        let folder = SportsFanFolder(name: "LG 트윈스", sportType: .baseball)
+        #expect(folder.displayName == "LG 트윈스")
     }
 
-    @Test("아이스하키 연장 포함 4피리어드")
-    func hockeyWithOvertime() {
-        let labels = SportType.hockey.periodLabels(count: 4)
-        #expect(labels == ["1P", "2P", "3P", "OT1"])
+    @Test("애칭 설정 시 애칭 반환")
+    func displayNameUsesNickname() {
+        let folder = SportsFanFolder(name: "San Francisco 49ers", sportType: .americanFootball)
+        folder.teamNickname = "49ers"
+        #expect(folder.displayName == "49ers")
     }
 
-    @Test("배구는 최소 5세트 보장")
-    func volleyballMinimumFiveSets() {
-        let labels = SportType.volleyball.periodLabels(count: 1)
-        #expect(labels.count == 5)
-        #expect(labels.first == "1세트")
-        #expect(labels.last  == "5세트")
+    @Test("빈 문자열 애칭은 공식 이름으로 폴백")
+    func displayNameIgnoresEmptyNickname() {
+        let folder = SportsFanFolder(name: "Manchester City", sportType: .soccer)
+        folder.teamNickname = ""
+        #expect(folder.displayName == "Manchester City")
     }
 
-    @Test("F1은 항상 '레이스' 레이블 하나")
-    func f1SingleRace() {
-        let labels = SportType.racing.periodLabels(count: 1)
-        #expect(labels == ["레이스"])
+    @Test("공백만 있는 애칭도 공식 이름으로 폴백")
+    func displayNameIgnoresWhitespaceOnlyNickname() {
+        let folder = SportsFanFolder(name: "Manchester City", sportType: .soccer)
+        folder.teamNickname = "   "
+        #expect(folder.displayName == "Manchester City")
+    }
+
+    @Test("앞뒤 공백이 있어도 애칭 내용이 있으면 트리밍 후 반환")
+    func displayNameTrimsNickname() {
+        let folder = SportsFanFolder(name: "Los Angeles Lakers", sportType: .basketball)
+        folder.teamNickname = "  Lakers  "
+        #expect(folder.displayName == "Lakers")
+    }
+}
+
+// MARK: - SportsModel 확장 프로퍼티 테스트
+
+/// `SportsModel`의 `team1Display`, `team2Display` 계산 프로퍼티를 검증합니다.
+@Suite("SportsModel — 팀 이름 표시 프로퍼티")
+struct SportsModelExtensionTests {
+
+    @Test("team1이 설정된 경우 team1Display는 team1 값 반환")
+    func team1DisplayReturnsTeam1WhenSet() {
+        let match = SportsModel(title: "리그 경기", opponentTeam: "전북 현대")
+        match.team1 = "FC 서울"
+        #expect(match.team1Display == "FC 서울")
+    }
+
+    @Test("team1이 nil이고 folder도 nil이면 '내 팀' 반환")
+    func team1DisplayFallsBackToDefaultWhenNil() {
+        let match = SportsModel(title: "경기", opponentTeam: "상대팀")
+        // team1도 nil, folder도 nil
+        #expect(match.team1Display == "내 팀")
+    }
+
+    @Test("team2Display는 항상 opponentTeam 반환")
+    func team2DisplayAlwaysReturnsOpponent() {
+        let match = SportsModel(title: "경기", opponentTeam: "두산 베어스")
+        match.team1 = "LG 트윈스"
+        #expect(match.team2Display == "두산 베어스")
     }
 }
 

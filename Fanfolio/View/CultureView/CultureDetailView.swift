@@ -12,20 +12,20 @@ struct CultureDetailView: View {
     let event: CultureModel
     
     @State private var showingEditSheet = false
-    @State private var showingSharePreviewSheet = false
+    @State private var showingTicketShareSheet = false
     @State private var showingQRZoomCover = false
     
     private static let dateFormatter: DateFormatter = {
         let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy년 M월 d일 (E)"
-        fmt.locale = Locale(identifier: "ko_KR")
+        fmt.locale = Locale.autoupdatingCurrent
+        fmt.setLocalizedDateFormatFromTemplate("yyyyMMMdEEE")
         return fmt
     }()
     
     private static let timeFormatter: DateFormatter = {
         let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        fmt.locale = Locale(identifier: "ko_KR")
+        fmt.locale = Locale.autoupdatingCurrent
+        fmt.timeStyle = .short
         return fmt
     }()
     
@@ -61,11 +61,9 @@ struct CultureDetailView: View {
                 ticketCard
                     .padding(.horizontal)
                 
-                // 완료된 이벤트: 공유 버튼
-                if event.eventStatus == .completed {
-                    shareCallToAction
-                        .padding(.horizontal)
-                }
+                // 이벤트 공유 버튼 (완료/예정 모두)
+                shareCallToAction
+                    .padding(.horizontal)
             }
             .padding(.vertical)
         }
@@ -84,10 +82,8 @@ struct CultureDetailView: View {
         .sheet(isPresented: $showingEditSheet) {
             EditCultureView(event: event)
         }
-        .sheet(isPresented: $showingSharePreviewSheet) {
-            SharePreviewView { style in
-                await Task { generateTicketImage(style: style) }.value
-            }
+        .sheet(isPresented: $showingTicketShareSheet) {
+            CultureTicketShareView(event: event)
         }
     }
     
@@ -130,7 +126,7 @@ struct CultureDetailView: View {
                 HStack(spacing: 6) {
                     Image(systemName: cultureType.iconName)
                         .font(.caption)
-                    Text(cultureType.rawValue)
+                    Text(cultureType.displayName)
                         .font(.caption.weight(.medium))
                 }
                 .foregroundStyle(.secondary)
@@ -267,8 +263,12 @@ struct CultureDetailView: View {
                     }
                 }
                 
-                // 현장 사진 갤러리
-                if let photos = event.photosData, !photos.isEmpty {
+                // 현장 사진 갤러리 (photoPaths 우선, 레거시는 photosData)
+                let photoPaths = event.photoPaths ?? []
+                let legacyPhotos = event.photosData ?? []
+                let hasPhotos = !photoPaths.isEmpty || !legacyPhotos.isEmpty
+                if hasPhotos {
+                    let count = photoPaths.isEmpty ? legacyPhotos.count : photoPaths.count
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
                             Image(systemName: "camera.fill")
@@ -277,20 +277,32 @@ struct CultureDetailView: View {
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text("\(photos.count)장")
+                            Text("\(count)장")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
                         
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 10) {
-                                ForEach(photos.indices, id: \.self) { index in
-                                    if let uiImage = UIImage(data: photos[index]) {
-                                        Image(uiImage: uiImage)
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 140, height: 140)
-                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                if !photoPaths.isEmpty {
+                                    ForEach(photoPaths.indices, id: \.self) { index in
+                                        if let uiImage = ArchivePhotoStore.loadImage(path: photoPaths[index]) {
+                                            Image(uiImage: uiImage)
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 140, height: 140)
+                                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        }
+                                    }
+                                } else {
+                                    ForEach(legacyPhotos.indices, id: \.self) { index in
+                                        if let uiImage = UIImage(data: legacyPhotos[index]) {
+                                            Image(uiImage: uiImage)
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 140, height: 140)
+                                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        }
                                     }
                                 }
                             }
@@ -342,7 +354,7 @@ struct CultureDetailView: View {
     }
     
     // MARK: - 별점 라벨
-    private var ratingLabel: String {
+    private var ratingLabel: LocalizedStringKey {
         switch event.rating {
         case 5: return "최고!"
         case 4: return "좋았어요"
@@ -394,7 +406,7 @@ struct CultureDetailView: View {
     // MARK: - 공유 CTA 버튼
     private var shareCallToAction: some View {
         Button {
-            showingSharePreviewSheet = true
+            showingTicketShareSheet = true
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.up")
@@ -410,242 +422,6 @@ struct CultureDetailView: View {
         }
     }
     
-    // MARK: - 공유 이미지 생성 (스타일별)
-    @MainActor
-    private func generateTicketImage(style: ShareStyle) -> UIImage? {
-        let content = CultureTicketShareContent(
-            title: event.title,
-            artist: event.artist,
-            cultureType: cultureType,
-            rating: event.rating,
-            eventStatus: event.eventStatus,
-            seatInfo: event.seatInfo,
-            date: event.date,
-            location: event.location,
-            bandColor: bandColor,
-            style: style
-        )
-        
-        let renderer = ImageRenderer(
-            content: content.frame(width: 390)
-        )
-        renderer.scale = 3
-        return renderer.uiImage
-    }
-}
-
-// MARK: - 공유용 티켓 이미지 뷰 (라이트/다크 지원, 컴팩트)
-/// ImageRenderer로 렌더링되는 뷰. 명시적 색상만 사용 (system color 미사용).
-private struct CultureTicketShareContent: View {
-    let title: String
-    let artist: String?
-    let cultureType: CultureType
-    let rating: Int
-    let eventStatus: EventStatus
-    let seatInfo: String?
-    let date: Date?
-    let location: String?
-    let bandColor: Color
-    let style: ShareStyle
-    
-    private static let dateFormatter: DateFormatter = {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy년 M월 d일 (E)"
-        fmt.locale = Locale(identifier: "ko_KR")
-        return fmt
-    }()
-    
-    // 스타일별 색상
-    private var cardBg: Color {
-        style == .light
-            ? Color(red: 0.98, green: 0.98, blue: 0.97)
-            : Color(red: 0.13, green: 0.11, blue: 0.17)
-    }
-    private var outerBg: Color {
-        style == .light
-            ? Color(red: 0.94, green: 0.94, blue: 0.93)
-            : Color(red: 0.06, green: 0.05, blue: 0.09)
-    }
-    private var textPrimary: Color {
-        style == .light
-            ? Color(red: 0.1, green: 0.1, blue: 0.1)
-            : Color(red: 0.95, green: 0.95, blue: 0.95)
-    }
-    private var textSecondary: Color {
-        style == .light
-            ? Color(red: 0.5, green: 0.5, blue: 0.5)
-            : Color(red: 0.6, green: 0.6, blue: 0.65)
-    }
-    private var textTertiary: Color {
-        style == .light
-            ? Color(red: 0.75, green: 0.75, blue: 0.75)
-            : Color(red: 0.35, green: 0.35, blue: 0.4)
-    }
-    
-    private var ratingLabel: String {
-        switch rating {
-        case 5: return "최고!"
-        case 4: return "좋았어요"
-        case 3: return "괜찮았어요"
-        case 2: return "아쉬워요"
-        case 1: return "별로"
-        default: return ""
-        }
-    }
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            // ── 상단 컬러 밴드 ──
-            bandColor
-                .frame(height: 12)
-                .clipShape(UnevenRoundedRectangle(
-                    topLeadingRadius: 24, topTrailingRadius: 24
-                ))
-            
-            // ── 상단 영역: 제목 + 아티스트 + 별점 ──
-            VStack(spacing: 20) {
-                // 카테고리 배지
-                HStack(spacing: 6) {
-                    Image(systemName: cultureType.iconName)
-                        .font(.caption)
-                    Text(cultureType.rawValue)
-                        .font(.caption.weight(.medium))
-                }
-                .foregroundStyle(textSecondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(textSecondary.opacity(0.1))
-                .clipShape(Capsule())
-                
-                // 제목 + 아티스트
-                VStack(spacing: 6) {
-                    Text(title)
-                        .font(.system(size: 26, weight: .heavy, design: .rounded))
-                        .foregroundStyle(textPrimary)
-                        .multilineTextAlignment(.center)
-                    
-                    if let artist, !artist.isEmpty {
-                        Text(artist)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(textSecondary)
-                    }
-                }
-                
-                // 별점
-                if eventStatus == .completed && rating > 0 {
-                    VStack(spacing: 8) {
-                        HStack(spacing: 6) {
-                            ForEach(1...5, id: \.self) { star in
-                                Image(systemName: star <= rating ? "star.fill" : "star")
-                                    .font(.title2)
-                                    .foregroundStyle(
-                                        star <= rating
-                                            ? Color.yellow
-                                            : textTertiary.opacity(0.4)
-                                    )
-                            }
-                        }
-                        
-                        Text(ratingLabel)
-                            .font(.subheadline.bold())
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 6)
-                            .background(bandColor)
-                            .clipShape(Capsule())
-                    }
-                }
-                
-                // 좌석
-                if let seat = seatInfo, !seat.isEmpty {
-                    HStack(spacing: 6) {
-                        Image(systemName: "ticket")
-                            .font(.caption)
-                        Text(seat)
-                            .font(.caption.weight(.medium))
-                    }
-                    .foregroundStyle(textSecondary)
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 28)
-            .frame(maxWidth: .infinity)
-            .background(cardBg)
-            
-            // ── 절취선 ──
-            ZStack {
-                cardBg.frame(height: 28)
-                
-                ShareTicketDashLine()
-                    .stroke(style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
-                    .foregroundStyle(textTertiary.opacity(0.5))
-                    .frame(height: 1)
-                    .padding(.horizontal, 28)
-                
-                HStack {
-                    Circle()
-                        .fill(outerBg)
-                        .frame(width: 28, height: 28)
-                        .offset(x: -14)
-                    Spacer()
-                    Circle()
-                        .fill(outerBg)
-                        .frame(width: 28, height: 28)
-                        .offset(x: 14)
-                }
-            }
-            .frame(height: 28)
-            .clipped()
-            
-            // ── 하단 영역: 날짜 + 장소 + 브랜딩 ──
-            VStack(alignment: .leading, spacing: 16) {
-                if date != nil || location != nil {
-                    VStack(alignment: .leading, spacing: 10) {
-                        if let date {
-                            HStack(spacing: 10) {
-                                Image(systemName: "calendar")
-                                    .frame(width: 20)
-                                    .foregroundStyle(bandColor)
-                                Text(Self.dateFormatter.string(from: date))
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(textPrimary)
-                            }
-                        }
-                        if let location, !location.isEmpty {
-                            HStack(spacing: 10) {
-                                Image(systemName: "mappin.and.ellipse")
-                                    .frame(width: 20)
-                                    .foregroundStyle(bandColor)
-                                Text(location)
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(textPrimary)
-                            }
-                        }
-                    }
-                }
-                
-                // 브랜딩
-                HStack {
-                    Spacer()
-                    Text("Fanfolio")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(textTertiary)
-                        .tracking(2)
-                    Spacer()
-                }
-                .padding(.top, 8)
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(cardBg)
-            .clipShape(UnevenRoundedRectangle(
-                bottomLeadingRadius: 24, bottomTrailingRadius: 24
-            ))
-        }
-        .padding(20)
-        .background(outerBg)
-    }
 }
 
 // MARK: - Previews

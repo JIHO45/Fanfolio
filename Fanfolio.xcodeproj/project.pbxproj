@@ -7,9 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D8D1BFA82F419545008DE051 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8D1BFA72F419545008DE051 /* WidgetKit.framework */; };
-		D8D1BFAA2F419545008DE051 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8D1BFA92F419545008DE051 /* SwiftUI.framework */; };
-		D8D1BFBB2F419547008DE051 /* FanfolioWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D8D1BFA52F419545008DE051 /* FanfolioWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D86F7BE12F6BCC8200260107 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = D86F7BE02F6BCC8200260107 /* Kingfisher */; };
 		D8D1BFE12F42DB8D008DE051 /* espn_teams_master.json in Resources */ = {isa = PBXBuildFile; fileRef = D8D1BFE02F42DB8D008DE051 /* espn_teams_master.json */; };
 /* End PBXBuildFile section */
 
@@ -28,57 +26,17 @@
 			remoteGlobalIDString = D84DF8A82EE9A66200205AA9;
 			remoteInfo = Fanfolio;
 		};
-		D8D1BFB92F419547008DE051 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = D84DF8A12EE9A66200205AA9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D8D1BFA42F419545008DE051;
-			remoteInfo = FanfolioWidgetExtension;
-		};
 /* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		D8D1BFC02F419547008DE051 /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				D8D1BFBB2F419547008DE051 /* FanfolioWidgetExtension.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		D84DF8A92EE9A66200205AA9 /* Fanfolio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fanfolio.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D84DF8B62EE9A66400205AA9 /* FanfolioTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FanfolioTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D84DF8C02EE9A66400205AA9 /* FanfolioUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FanfolioUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		D8D1BFA52F419545008DE051 /* FanfolioWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FanfolioWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		D8D1BFA72F419545008DE051 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
-		D8D1BFA92F419545008DE051 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
-		D8D1BFC42F41973B008DE051 /* FanfolioWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FanfolioWidgetExtension.entitlements; sourceTree = "<group>"; };
 		D8D1BFE02F42DB8D008DE051 /* espn_teams_master.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = espn_teams_master.json; sourceTree = "<group>"; };
+		D8E0F1A22F71000100205001 /* DeveloperSettings.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = DeveloperSettings.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		D8D1BFBC2F419547008DE051 /* Exceptions for "FanfolioWidget" folder in "FanfolioWidgetExtension" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = D8D1BFA42F419545008DE051 /* FanfolioWidgetExtension */;
-		};
-		D8D1BFC32F41970F008DE051 /* Exceptions for "Fanfolio" folder in "FanfolioWidgetExtension" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Model/ArchiveItem.swift,
-				Model/F1RaceModel.swift,
-				Model/GolfRoundModel.swift,
-			);
-			target = D8D1BFA42F419545008DE051 /* FanfolioWidgetExtension */;
-		};
 		D8D1BFD92F41EFFE008DE051 /* Exceptions for "Fanfolio" folder in "Fanfolio" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -93,7 +51,6 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				D8D1BFD92F41EFFE008DE051 /* Exceptions for "Fanfolio" folder in "Fanfolio" target */,
-				D8D1BFC32F41970F008DE051 /* Exceptions for "Fanfolio" folder in "FanfolioWidgetExtension" target */,
 			);
 			path = Fanfolio;
 			sourceTree = "<group>";
@@ -108,14 +65,6 @@
 			path = FanfolioUITests;
 			sourceTree = "<group>";
 		};
-		D8D1BFAB2F419545008DE051 /* FanfolioWidget */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				D8D1BFBC2F419547008DE051 /* Exceptions for "FanfolioWidget" folder in "FanfolioWidgetExtension" target */,
-			);
-			path = FanfolioWidget;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +72,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D86F7BE12F6BCC8200260107 /* Kingfisher in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -140,28 +90,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D8D1BFA22F419545008DE051 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				D8D1BFAA2F419545008DE051 /* SwiftUI.framework in Frameworks */,
-				D8D1BFA82F419545008DE051 /* WidgetKit.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		D84DF8A02EE9A66200205AA9 = {
 			isa = PBXGroup;
 			children = (
+				D8E0F1A22F71000100205001 /* DeveloperSettings.xcconfig */,
 				D8D1BFE02F42DB8D008DE051 /* espn_teams_master.json */,
-				D8D1BFC42F41973B008DE051 /* FanfolioWidgetExtension.entitlements */,
 				D84DF8AB2EE9A66200205AA9 /* Fanfolio */,
 				D84DF8B92EE9A66400205AA9 /* FanfolioTests */,
 				D84DF8C32EE9A66400205AA9 /* FanfolioUITests */,
-				D8D1BFAB2F419545008DE051 /* FanfolioWidget */,
-				D8D1BFA62F419545008DE051 /* Frameworks */,
 				D84DF8AA2EE9A66200205AA9 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -172,18 +111,8 @@
 				D84DF8A92EE9A66200205AA9 /* Fanfolio.app */,
 				D84DF8B62EE9A66400205AA9 /* FanfolioTests.xctest */,
 				D84DF8C02EE9A66400205AA9 /* FanfolioUITests.xctest */,
-				D8D1BFA52F419545008DE051 /* FanfolioWidgetExtension.appex */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		D8D1BFA62F419545008DE051 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				D8D1BFA72F419545008DE051 /* WidgetKit.framework */,
-				D8D1BFA92F419545008DE051 /* SwiftUI.framework */,
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -196,18 +125,17 @@
 				D84DF8A52EE9A66200205AA9 /* Sources */,
 				D84DF8A62EE9A66200205AA9 /* Frameworks */,
 				D84DF8A72EE9A66200205AA9 /* Resources */,
-				D8D1BFC02F419547008DE051 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				D8D1BFBA2F419547008DE051 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				D84DF8AB2EE9A66200205AA9 /* Fanfolio */,
 			);
 			name = Fanfolio;
 			packageProductDependencies = (
+				D86F7BE02F6BCC8200260107 /* Kingfisher */,
 			);
 			productName = Fanfolio;
 			productReference = D84DF8A92EE9A66200205AA9 /* Fanfolio.app */;
@@ -259,28 +187,6 @@
 			productReference = D84DF8C02EE9A66400205AA9 /* FanfolioUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
-		D8D1BFA42F419545008DE051 /* FanfolioWidgetExtension */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = D8D1BFBD2F419547008DE051 /* Build configuration list for PBXNativeTarget "FanfolioWidgetExtension" */;
-			buildPhases = (
-				D8D1BFA12F419545008DE051 /* Sources */,
-				D8D1BFA22F419545008DE051 /* Frameworks */,
-				D8D1BFA32F419545008DE051 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				D8D1BFAB2F419545008DE051 /* FanfolioWidget */,
-			);
-			name = FanfolioWidgetExtension;
-			packageProductDependencies = (
-			);
-			productName = FanfolioWidgetExtension;
-			productReference = D8D1BFA52F419545008DE051 /* FanfolioWidgetExtension.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -302,9 +208,6 @@
 						CreatedOnToolsVersion = 26.1;
 						TestTargetID = D84DF8A82EE9A66200205AA9;
 					};
-					D8D1BFA42F419545008DE051 = {
-						CreatedOnToolsVersion = 26.1;
-					};
 				};
 			};
 			buildConfigurationList = D84DF8A42EE9A66200205AA9 /* Build configuration list for PBXProject "Fanfolio" */;
@@ -316,6 +219,9 @@
 			);
 			mainGroup = D84DF8A02EE9A66200205AA9;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D86F7BDF2F6BCC8200260107 /* XCRemoteSwiftPackageReference "Kingfisher" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D84DF8AA2EE9A66200205AA9 /* Products */;
 			projectDirPath = "";
@@ -324,7 +230,6 @@
 				D84DF8A82EE9A66200205AA9 /* Fanfolio */,
 				D84DF8B52EE9A66400205AA9 /* FanfolioTests */,
 				D84DF8BF2EE9A66400205AA9 /* FanfolioUITests */,
-				D8D1BFA42F419545008DE051 /* FanfolioWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -346,13 +251,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		D84DF8BE2EE9A66400205AA9 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		D8D1BFA32F419545008DE051 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -383,13 +281,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D8D1BFA12F419545008DE051 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -402,11 +293,6 @@
 			isa = PBXTargetDependency;
 			target = D84DF8A82EE9A66200205AA9 /* Fanfolio */;
 			targetProxy = D84DF8C12EE9A66400205AA9 /* PBXContainerItemProxy */;
-		};
-		D8D1BFBA2F419547008DE051 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D8D1BFA42F419545008DE051 /* FanfolioWidgetExtension */;
-			targetProxy = D8D1BFB92F419547008DE051 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -536,6 +422,7 @@
 		};
 		D84DF8CB2EE9A66400205AA9 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D8E0F1A22F71000100205001 /* DeveloperSettings.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -547,6 +434,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Fanfolio/Info.plist;
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "직관 기록과 승률 카드를 기기의 사진첩에 저장하기 위해 접근 권한이 필요합니다.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "티켓·프로필 사진을 선택하기 위해 사진 라이브러리 접근이 필요합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -571,6 +459,7 @@
 		};
 		D84DF8CC2EE9A66400205AA9 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D8E0F1A22F71000100205001 /* DeveloperSettings.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -582,6 +471,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Fanfolio/Info.plist;
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "직관 기록과 승률 카드를 기기의 사진첩에 저장하기 위해 접근 권한이 필요합니다.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "티켓·프로필 사진을 선택하기 위해 사진 라이브러리 접근이 필요합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -688,68 +578,6 @@
 			};
 			name = Release;
 		};
-		D8D1BFBE2F419547008DE051 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = FanfolioWidgetExtension.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CH7CDR7288;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = FanfolioWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = FanfolioWidget;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.Joe.Fanfolio.FanfolioWidget;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		D8D1BFBF2F419547008DE051 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = FanfolioWidgetExtension.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CH7CDR7288;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = FanfolioWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = FanfolioWidget;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.Joe.Fanfolio.FanfolioWidget;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -789,16 +617,26 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		D8D1BFBD2F419547008DE051 /* Build configuration list for PBXNativeTarget "FanfolioWidgetExtension" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				D8D1BFBE2F419547008DE051 /* Debug */,
-				D8D1BFBF2F419547008DE051 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D86F7BDF2F6BCC8200260107 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D86F7BE02F6BCC8200260107 /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D86F7BDF2F6BCC8200260107 /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = D84DF8A12EE9A66200205AA9 /* Project object */;
 }

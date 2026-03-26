@@ -51,7 +51,7 @@ struct CultureStatsView: View {
     // MARK: - 아티스트/작품별 통계
     private var artistRecords: [ArtistRecord] {
         let eventsWithArtist = completedEvents.filter { $0.artist != nil && !($0.artist?.isEmpty ?? true) }
-        let grouped = Dictionary(grouping: eventsWithArtist, by: { $0.artist! })
+        let grouped = Dictionary(grouping: eventsWithArtist, by: { $0.artist ?? "" })
         return grouped.map { (artist, events) in
             let ratings = events.filter { $0.rating > 0 }.map(\.rating)
             let avg = ratings.isEmpty ? 0 : Double(ratings.reduce(0, +)) / Double(ratings.count)
@@ -84,7 +84,9 @@ struct CultureStatsView: View {
     private var milestones: [CultureMilestone] {
         let hasHighRating = completedEvents.contains { $0.rating == 5 }
         let distinctArtists = Set(completedEvents.compactMap { $0.artist }).count
-        let hasPhotos = completedEvents.contains { $0.photosData != nil && !($0.photosData?.isEmpty ?? true) }
+        let hasPhotos = completedEvents.contains { event in
+            (!(event.photoPaths?.isEmpty ?? true)) || (event.photosData != nil && !(event.photosData?.isEmpty ?? true))
+        }
         let hasQR = completedEvents.contains { $0.qrCodeImageData != nil }
         let distinctLocations = Set(completedEvents.compactMap { $0.location }).count
         let repeatArtist = artistRecords.contains { $0.count >= 3 }
@@ -167,7 +169,7 @@ extension CultureStatsView {
                         Image(systemName: "star.fill")
                             .foregroundStyle(.yellow)
                             .font(.caption)
-                        Text(String(format: "%.1f", averageRating))
+                        Text("\(averageRating, format: .number.precision(.fractionLength(1)))")
                             .font(.system(size: 28, weight: .heavy, design: .rounded))
                     }
                     Text("평균 별점")
@@ -287,7 +289,7 @@ extension CultureStatsView {
                                     Image(systemName: "star.fill")
                                         .font(.system(size: 10))
                                         .foregroundStyle(.yellow)
-                                    Text(String(format: "%.1f", record.averageRating))
+                                    Text("\(record.averageRating, format: .number.precision(.fractionLength(1)))")
                                         .font(.caption.bold())
                                 }
                             }
@@ -572,7 +574,7 @@ private struct CultureReportContent: View {
                 }
                 
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text(String(format: "%.1f", averageRating))
+                    Text("\(averageRating, format: .number.precision(.fractionLength(1)))")
                         .font(.system(size: 60, weight: .heavy, design: .rounded))
                         .foregroundStyle(textMain)
                     Text(" / 5")

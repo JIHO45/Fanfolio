@@ -1,0 +1,4 @@
+// 이 파일을 복사해 `APIKeys.xcconfig`로 저장한 뒤 실제 키를 넣으세요.
+//   cp APIKeys.xcconfig.example APIKeys.xcconfig
+// APIKeys.xcconfig는 Git에 커밋하지 마세요.
+API_SPORTS_KEY = YOUR_API_SPORTS_KEY_HERE

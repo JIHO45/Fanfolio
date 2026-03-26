@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import Kingfisher
 
 struct SportsDetailView: View {
     let match: SportsModel
@@ -14,24 +15,28 @@ struct SportsDetailView: View {
     @State private var showingEditSheet = false
     @State private var showingTicketShareSheet = false
     @State private var showingQRZoomCover = false
+    @State private var selectedSavedTicket: SavedTicket?
     
     // MARK: - 선수단 & 즐겨찾기 상태
     @State private var squadPlayers: [PlayerInfo] = []
     @State private var isLoadingSquad = false
-    @State private var showAllLineup = false
     @State private var favorites = FavoritePlayersManager.shared
+
+    // MARK: - 라인업 포지션 필터 상태
+    @State private var selectedGroup: PositionGroup? = nil
+    @State private var selectedNFLPhase: NFLPhase? = nil
     
     private static let dateFormatter: DateFormatter = {
         let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy년 M월 d일 (E)"
-        fmt.locale = Locale(identifier: "ko_KR")
+        fmt.locale = Locale.autoupdatingCurrent
+        fmt.setLocalizedDateFormatFromTemplate("yyyyMMMdEEE")
         return fmt
     }()
     
     private static let timeFormatter: DateFormatter = {
         let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        fmt.locale = Locale(identifier: "ko_KR")
+        fmt.locale = Locale.autoupdatingCurrent
+        fmt.timeStyle = .short
         return fmt
     }()
     
@@ -41,6 +46,9 @@ struct SportsDetailView: View {
     
     private var team1Name: String { match.team1Display }
     private var team2Name: String { match.team2Display }
+    private var savedTickets: [SavedTicket] {
+        match.savedTickets.sorted { $0.createdAt > $1.createdAt }
+    }
     
     private var bandColor: Color {
         match.matchStatus == .completed
@@ -58,7 +66,36 @@ struct SportsDetailView: View {
     private var team2Data: ESPNTeam? {
         ESPNTeamsLoader.team(name: match.opponentTeam, leagueCode: match.folder?.leagueCode)
     }
-    
+
+    private var lineScoreLeagueTitle: String {
+        if let code = match.folder?.leagueCode, !code.isEmpty {
+            return LeagueInfo.displayNameString(for: code)
+        }
+        return sportType.displayName
+    }
+
+    private var lineScoreHomeLogoURL: String? {
+        match.isHomeGame
+            ? (match.hasFavoriteTeam ? match.folder?.teamLogoUrl : team1Data?.logo_url)
+            : team2Data?.logo_url
+    }
+
+    private var lineScoreAwayLogoURL: String? {
+        match.isHomeGame
+            ? team2Data?.logo_url
+            : (match.hasFavoriteTeam ? match.folder?.teamLogoUrl : team1Data?.logo_url)
+    }
+
+    private var importedLineScoreFixture: LiveFixture? {
+        LiveFixture.fromImportedArchive(
+            match: match,
+            sportType: sportType,
+            leagueDisplayName: lineScoreLeagueTitle,
+            homeLogoURL: lineScoreHomeLogoURL,
+            awayLogoURL: lineScoreAwayLogoURL
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -71,16 +108,27 @@ struct SportsDetailView: View {
                 // 메인 티켓 카드
                 ticketCard
                     .padding(.horizontal)
-                
-                // 완료된 경기: 선수 하이라이트 섹션
-                if match.matchStatus == .completed {
-                    playerHighlightSection
+
+                // 경기 불러오기로 저장된 이닝·쿼터 점수 (라이브 스코어보드와 동일 박스)
+                if let fixture = importedLineScoreFixture {
+                    LiveScoreboardView(fixture: fixture, sportType: sportType)
                         .padding(.horizontal)
                 }
                 
                 // 완료된 경기: 공유 버튼
                 if match.matchStatus == .completed {
                     shareCallToAction
+                        .padding(.horizontal)
+                }
+                
+                if match.matchStatus == .completed, !savedTickets.isEmpty {
+                    savedTicketSection
+                        .padding(.horizontal)
+                }
+                
+                // 완료된 경기: 선수 하이라이트 섹션
+                if match.matchStatus == .completed {
+                    playerHighlightSection
                         .padding(.horizontal)
                 }
             }
@@ -104,28 +152,38 @@ struct SportsDetailView: View {
         .sheet(isPresented: $showingTicketShareSheet) {
             SportsTicketShareView(match: match)
         }
-        .task {
+        .fullScreenCover(item: $selectedSavedTicket) { ticket in
+            TicketImageViewerView(ticket: ticket)
+        }
+        // 예정→완료 전환·폴더(리그/팀) 변경 시 로스터를 다시 로드
+        .task(id: match.fanfolioMatchSquadTaskToken) {
             await loadSquadIfNeeded()
         }
     }
     
     // MARK: - 선수단 로드
-    
+    // 미국 스포츠: ESPN 팀 로스터 → ESPN CDN 고화질 이미지
+    // KBO·유럽 등: API-Sports 팀 로스터
+
     private func loadSquadIfNeeded() async {
         guard match.matchStatus == .completed,
               squadPlayers.isEmpty,
               !isLoadingSquad else { return }
-        
+
         isLoadingSquad = true
         defer { isLoadingSquad = false }
-        
-        let teamName = match.folder?.name ?? match.team1Display
-        do {
-            let players = try await TheSportsDBService.shared.fetchSquadByTeamName(teamName)
-            squadPlayers = players
-        } catch {
-            // 로드 실패 시 빈 배열 유지 (UI에서 조용히 처리)
-        }
+
+        let folder   = match.folder
+        let teamName = folder?.name ?? match.team1Display
+        let espnTeam = ESPNTeamsLoader.team(name: teamName, leagueCode: folder?.leagueCode)
+
+        squadPlayers = await PlayerMatchingService.shared.fetchSquadWithCutouts(
+            sportType: folder?.sportType ?? .other,
+            teamName: teamName,
+            espnTeamID: espnTeam?.id,
+            leagueCode: folder?.leagueCode,
+            apiSportsTeamID: folder?.apiSportsTeamID
+        )
     }
     
     // MARK: - 상태 배너 (예정/진행중)
@@ -135,7 +193,7 @@ struct SportsDetailView: View {
                 .foregroundStyle(match.matchStatus == .live ? .white : match.matchStatus.color)
                 .symbolEffect(.pulse, isActive: match.matchStatus == .live)
             
-            Text(match.matchStatus.rawValue)
+            Text(match.matchStatus.displayName)
                 .font(.subheadline.bold())
                 .foregroundStyle(match.matchStatus == .live ? .white : match.matchStatus.color)
             
@@ -170,7 +228,7 @@ struct SportsDetailView: View {
                 HStack(spacing: 6) {
                     Image(systemName: sportType.iconName)
                         .font(.caption)
-                    Text(sportType.rawValue)
+                    Text(sportType.displayName)
                         .font(.caption.weight(.medium))
                 }
                 .foregroundStyle(.secondary)
@@ -189,20 +247,16 @@ struct SportsDetailView: View {
                                 endPoint: .bottomTrailing
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 14))
-                            AsyncImage(url: URL(string: url)) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image.resizable().scaledToFit().padding(12)
-                                case .failure:
+                            KFImage.url(URL(string: url))
+                                .placeholder { ProgressView().tint(.white) }
+                                .onFailureView {
                                     Image(systemName: "photo")
                                         .font(.title2)
                                         .foregroundStyle(.white.opacity(0.8))
-                                case .empty:
-                                    ProgressView().tint(.white)
-                                @unknown default:
-                                    EmptyView()
                                 }
-                            }
+                                .resizable()
+                                .scaledToFit()
+                                .padding(12)
                         }
                         .frame(width: 64, height: 64)
                     }
@@ -236,7 +290,7 @@ struct SportsDetailView: View {
                                 )
                         }
                         
-                        Text(match.matchResult.rawValue)
+                        Text(match.matchResult.displayName)
                             .font(.subheadline.bold())
                             .foregroundStyle(.white)
                             .padding(.horizontal, 20)
@@ -259,20 +313,16 @@ struct SportsDetailView: View {
                                 endPoint: .bottomTrailing
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 14))
-                            AsyncImage(url: URL(string: opp.logo_url)) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image.resizable().scaledToFit().padding(12)
-                                case .failure:
+                            KFImage.url(URL(string: opp.logo_url))
+                                .placeholder { ProgressView().tint(.white) }
+                                .onFailureView {
                                     Image(systemName: "photo")
                                         .font(.title2)
                                         .foregroundStyle(.white.opacity(0.8))
-                                case .empty:
-                                    ProgressView().tint(.white)
-                                @unknown default:
-                                    EmptyView()
                                 }
-                            }
+                                .resizable()
+                                .scaledToFit()
+                                .padding(12)
                         }
                         .frame(width: 64, height: 64)
                     }
@@ -357,8 +407,12 @@ struct SportsDetailView: View {
                     }
                 }
                 
-                // 직관 사진 갤러리
-                if let photos = match.photosData, !photos.isEmpty {
+                // 직관 사진 갤러리 (photoPaths 우선, 레거시는 photosData)
+                let photoPaths = match.photoPaths ?? []
+                let legacyPhotos = match.photosData ?? []
+                let hasPhotos = !photoPaths.isEmpty || !legacyPhotos.isEmpty
+                if hasPhotos {
+                    let count = photoPaths.isEmpty ? legacyPhotos.count : photoPaths.count
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
                             Image(systemName: "camera.fill")
@@ -367,20 +421,32 @@ struct SportsDetailView: View {
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text("\(photos.count)장")
+                            Text("\(count)장")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
                         
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 10) {
-                                ForEach(photos.indices, id: \.self) { index in
-                                    if let uiImage = UIImage(data: photos[index]) {
-                                        Image(uiImage: uiImage)
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 140, height: 140)
-                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                if !photoPaths.isEmpty {
+                                    ForEach(photoPaths.indices, id: \.self) { index in
+                                        if let uiImage = ArchivePhotoStore.loadImage(path: photoPaths[index]) {
+                                            Image(uiImage: uiImage)
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 140, height: 140)
+                                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        }
+                                    }
+                                } else {
+                                    ForEach(legacyPhotos.indices, id: \.self) { index in
+                                        if let uiImage = UIImage(data: legacyPhotos[index]) {
+                                            Image(uiImage: uiImage)
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 140, height: 140)
+                                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        }
                                     }
                                 }
                             }
@@ -463,7 +529,8 @@ struct SportsDetailView: View {
     
     @ViewBuilder
     private var playerHighlightSection: some View {
-        let favoriteIDs = favorites.favoriteIDs
+        let folderKey = match.folder?.folderID.uuidString ?? "__no_folder__"
+        let favoriteIDs = favorites.favoriteIDs(inFolder: folderKey)
         let vipPlayers = squadPlayers.filter { favoriteIDs.contains("\($0.id)") }
         let restPlayers = squadPlayers.filter { !favoriteIDs.contains("\($0.id)") }
         let sportType = match.folder?.sportType ?? .other
@@ -533,10 +600,9 @@ struct SportsDetailView: View {
             ForEach(players) { player in
                 NavigationLink(destination: PlayerDetailView(
                     player: player,
-                    sportType: sportType,
                     folder: match.folder
                 )) {
-                    vipPlayerCard(player: player, sportType: sportType)
+                    vipPlayerCard(player: player)
                 }
                 .buttonStyle(.plain)
             }
@@ -561,19 +627,20 @@ struct SportsDetailView: View {
         )
     }
     
-    private func vipPlayerCard(player: PlayerInfo, sportType: SportType) -> some View {
+    private func vipPlayerCard(player: PlayerInfo) -> some View {
         let teamColor = Color.from(hex: match.folder?.teamColor) ?? bandColor
         let gradients = match.folder?.gradientColors ?? [.gray, .gray.opacity(0.7)]
-        let highlights = player.stats?.highlights(for: sportType) ?? []
         
         return HStack(spacing: 14) {
             // 누끼 사진 (크게)
             PlayerImageView(
-                cutoutURL: player.cutoutImageURL,
-                photoURL: player.photoURL,
+                imageURL: player.imageURL,
                 fallbackTeamLogoURL: match.folder?.teamLogoUrl,
                 fallbackGradient: gradients,
-                size: 60
+                size: 60,
+                playerName: player.name,
+                jerseyNumber: player.number,
+                sportType: match.folder?.sportType
             )
             
             // 이름 + 포지션
@@ -602,24 +669,7 @@ struct SportsDetailView: View {
             }
             
             Spacer()
-            
-            // 스탯 (최대 2개)
-            if !highlights.isEmpty {
-                VStack(alignment: .trailing, spacing: 4) {
-                    ForEach(highlights.prefix(2), id: \.0) { label, value in
-                        VStack(alignment: .trailing, spacing: 1) {
-                            Text(value)
-                                .font(.system(size: 16, weight: .heavy, design: .rounded))
-                                .foregroundStyle(teamColor)
-                                .monospacedDigit()
-                            Text(label)
-                                .font(.system(size: 9))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-            
+
             Image(systemName: "chevron.right")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
@@ -636,110 +686,26 @@ struct SportsDetailView: View {
     }
     
     // MARK: - 전체 라인업 섹션
-    
+
     private func lineupSection(players: [PlayerInfo], sportType: SportType) -> some View {
-        let displayed = showAllLineup ? players : Array(players.prefix(5))
-        
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Label("팀 라인업", systemImage: "person.3.fill")
-                    .font(.subheadline.bold())
-                Spacer()
-                Text("\(players.count)명")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            
-            ForEach(displayed) { player in
-                NavigationLink(destination: PlayerDetailView(
-                    player: player,
-                    sportType: sportType,
-                    folder: match.folder
-                )) {
-                    lineupPlayerRow(player: player, sportType: sportType)
-                }
-                .buttonStyle(.plain)
-                
-                if player.id != displayed.last?.id {
-                    Divider()
-                }
-            }
-            
-            if players.count > 5 {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showAllLineup.toggle()
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(showAllLineup ? "접기" : "전체 \(players.count)명 보기")
-                            .font(.caption.bold())
-                        Image(systemName: showAllLineup ? "chevron.up" : "chevron.down")
-                            .font(.caption2.bold())
-                    }
-                    .foregroundStyle(.blue)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 4)
-                }
-            }
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(uiColor: .secondarySystemBackground))
-        )
-    }
-    
-    private func lineupPlayerRow(player: PlayerInfo, sportType: SportType) -> some View {
-        let isFav = favorites.isFavorite("\(player.id)")
-        let gradients = match.folder?.gradientColors ?? [.gray, .gray.opacity(0.7)]
-        
-        return HStack(spacing: 12) {
-            PlayerImageView(
-                cutoutURL: player.cutoutImageURL,
-                photoURL: player.photoURL,
-                fallbackTeamLogoURL: match.folder?.teamLogoUrl,
-                fallbackGradient: gradients
+        GroupedPlayerListCard(
+            title: "팀 라인업",
+            players: players,
+            sportType: sportType,
+            teamColorHex: match.folder?.teamColor,
+            fallbackTeamLogoURL: match.folder?.teamLogoUrl,
+            fallbackGradient: match.folder?.gradientColors ?? [.gray, .gray.opacity(0.7)],
+            favoriteFolderKey: match.folder?.folderID.uuidString ?? "__no_folder__",
+            selectedGroup: $selectedGroup,
+            selectedNFLPhase: $selectedNFLPhase
+        ) { player in
+            PlayerDetailView(
+                player: player,
+                folder: match.folder
             )
-            
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(player.name)
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
-                    if let num = player.number {
-                        Text("#\(num)")
-                            .font(.caption2.bold())
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill((Color.from(hex: match.folder?.teamColor) ?? .blue).opacity(0.8))
-                            )
-                    }
-                    if isFav {
-                        Image(systemName: "heart.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.red)
-                    }
-                }
-                if let pos = player.position {
-                    Text(pos)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            
-            Spacer()
-            
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
         }
-        .padding(.vertical, 4)
     }
-    
+
     // MARK: - 공유 CTA 버튼
     private var shareCallToAction: some View {
         Button {
@@ -756,6 +722,32 @@ struct SportsDetailView: View {
             .padding(.vertical, 16)
             .background(bandColor)
             .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+    
+    private var savedTicketSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("저장한 티켓", systemImage: "ticket.fill")
+                    .font(.subheadline.bold())
+                Spacer()
+                Text("\(savedTickets.count)장")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(savedTickets) { ticket in
+                        SavedTicketThumbnailView(ticket: ticket)
+                            .frame(width: 190)
+                            .onTapGesture {
+                                selectedSavedTicket = ticket
+                            }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
         }
     }
     

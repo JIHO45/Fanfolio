@@ -48,7 +48,15 @@ struct LiveFixtureStatus: Codable {
     }
     
     var isUpcoming: Bool { short == "NS" || short == "TBD" }
-    var isFinished: Bool { short == "FT" || short == "AOT" || short == "F" || short == "Final" }
+    /// API-Sports 축구 등에서 쓰는 종료 코드 포함 (진행 중으로 오인 방지)
+    var isFinished: Bool {
+        switch short {
+        case "FT", "AOT", "F", "Final", "PEN", "AET", "AWD", "WO":
+            return true
+        default:
+            return false
+        }
+    }
     
     /// 화면 표시용 텍스트
     var displayText: String {
@@ -65,7 +73,9 @@ struct LiveFixtureStatus: Codable {
         case "FT", "F": return "종료"
         case "AOT": return "연장 종료"
         default:
-            if let e = elapsed { return "\(e)'" }
+            if let e = elapsed {
+                return "\(e)′"
+            }
             return short
         }
     }
@@ -101,15 +111,6 @@ extension SportType {
             return count > 2 ? ["전반","후반"] + (1...(count-2)).map { "연장\($0)" } : ["전반","후반"]
         case .baseball:
             return (1...max(9,count)).map { "\($0)회" }
-        case .volleyball:
-            return (1...max(5,count)).map { "\($0)세트" }
-        case .hockey:
-            let base = ["1P","2P","3P"]
-            return count > 3 ? base + (1...(count-3)).map { "OT\($0)" } : Array(base.prefix(count))
-        case .tennis:
-            return (1...max(3,count)).map { "\($0)세트" }
-        case .racing:
-            return ["레이스"]
         default:
             return (1...count).map { "\($0)" }
         }
@@ -173,6 +174,89 @@ struct APISportsNFLTeamScore: Codable {
     let total: Int?
 }
 
+// MARK: - ESPN 팀 스포츠 스코어보드 디코딩 구조체
+// https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard
+
+struct ESPNLiveScoreboardResponse: Decodable {
+    let events: [ESPNLiveEvent]
+}
+
+struct ESPNLiveEvent: Decodable {
+    let id: String
+    let name: String?
+    let date: String?
+    let competitions: [ESPNLiveCompetition]
+}
+
+struct ESPNLiveCompetition: Decodable {
+    let status: ESPNLiveCompetitionStatus
+    let competitors: [ESPNLiveCompetitor]
+}
+
+struct ESPNLiveCompetitionStatus: Decodable {
+    let clock: Double?
+    let displayClock: String?
+    let period: Int?
+    let type: ESPNLiveStatusType
+}
+
+struct ESPNLiveStatusType: Decodable {
+    let name: String        // "STATUS_SCHEDULED", "STATUS_IN_PROGRESS", "STATUS_FINAL" 등
+    let state: String?      // "pre", "in", "post" — 스케줄 API에서 누락될 수 있음
+    let completed: Bool?    // 예정 경기는 이 값 자체가 없을 수 있음
+    let shortDetail: String?
+}
+
+// score가 "24"(String) 또는 {"value":0,"displayValue":"0"}(Dictionary)로 혼용되어 내려오므로 보조 구조체로 방어
+struct ESPNScoreDict: Decodable {
+    let value: Double?
+    let displayValue: String?
+}
+
+struct ESPNLiveCompetitor: Decodable {
+    let id: String?
+    let homeAway: String?
+    var score: String?
+    let team: ESPNLiveTeam
+    let linescores: [ESPNLiveLineScore]?
+
+    enum CodingKeys: String, CodingKey {
+        case id, homeAway, score, team, linescores
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id         = try container.decodeIfPresent(String.self, forKey: .id)
+        self.homeAway   = try container.decodeIfPresent(String.self, forKey: .homeAway)
+        self.team       = try container.decode(ESPNLiveTeam.self, forKey: .team)
+        self.linescores = try container.decodeIfPresent([ESPNLiveLineScore].self, forKey: .linescores)
+
+        // Case A: 라이브/종료 경기 → score가 String으로 내려오는 경우
+        if let strScore = try? container.decode(String.self, forKey: .score) {
+            self.score = strScore
+        // Case B: 예정된 경기 → score가 Dictionary로 내려오는 경우
+        } else if let dictScore = try? container.decode(ESPNScoreDict.self, forKey: .score) {
+            self.score = dictScore.displayValue ?? dictScore.value.map { String(Int($0)) }
+        // Case C: score 키 자체가 없는 경우
+        } else {
+            self.score = nil
+        }
+    }
+}
+
+struct ESPNLiveTeam: Decodable {
+    let id: String
+    let displayName: String
+    let abbreviation: String?
+    let logo: String?
+    let color: String?
+    let alternateColor: String?
+}
+
+struct ESPNLiveLineScore: Decodable {
+    let value: Double?
+}
+
 /// 축구 (Football) API-Sports 응답
 struct APISportsSoccerResponse: Codable {
     let response: [APISportsSoccerFixture]
@@ -217,4 +301,69 @@ struct APISportsSoccerGoals: Codable {
 struct APISportsSoccerScore: Codable {
     let halftime: APISportsSoccerGoals
     let fulltime: APISportsSoccerGoals
+}
+
+// MARK: - API-Sports 야구 경기 일정 응답 (KBO 전용)
+
+struct APISportsBaseballGamesResponse: Codable {
+    let response: [APISportsBaseballGame]
+}
+
+struct APISportsBaseballGame: Codable {
+    let id: Int
+    let date: String?
+    let teams: APISportsBaseballTeams
+    let scores: APISportsBaseballScores?
+    let status: APISportsBaseballGameStatus
+}
+
+struct APISportsBaseballTeams: Codable {
+    let home: APISportsTeam
+    let away: APISportsTeam
+}
+
+struct APISportsBaseballScores: Codable {
+    let home: APISportsBaseballTeamScore?
+    let away: APISportsBaseballTeamScore?
+}
+
+struct APISportsBaseballTeamScore: Codable {
+    let total: Int?
+}
+
+struct APISportsBaseballGameStatus: Codable {
+    let short: String?
+}
+
+// MARK: - 아카이브 경기 상세 (불러오기 피리어드 점수)
+
+extension LiveFixture {
+    /// 저장된 `importedPeriodScoresData`가 있을 때만, 라이브 스코어보드 카드와 동일한 레이아웃용 모델을 만듭니다.
+    static func fromImportedArchive(
+        match: SportsModel,
+        sportType: SportType,
+        leagueDisplayName: String,
+        homeLogoURL: String?,
+        awayLogoURL: String?
+    ) -> LiveFixture? {
+        let periods = match.importedPeriodScores
+        guard !periods.isEmpty else { return nil }
+
+        let homeName = match.isHomeGame ? match.team1Display : match.opponentTeam
+        let awayName = match.isHomeGame ? match.opponentTeam : match.team1Display
+        let homeTotal = match.isHomeGame ? match.myTeamScore : match.opponentScore
+        let awayTotal = match.isHomeGame ? match.opponentScore : match.myTeamScore
+
+        let eventHash = match.externalEventID?.hashValue ?? match.title.hashValue
+        return LiveFixture(
+            id: abs(eventHash),
+            homeTeam: LiveTeamInfo(id: 0, name: homeName, logoURL: homeLogoURL),
+            awayTeam: LiveTeamInfo(id: 0, name: awayName, logoURL: awayLogoURL),
+            score: LiveScore(home: homeTotal, away: awayTotal),
+            status: LiveFixtureStatus(short: "FT", elapsed: nil, period: nil),
+            league: LiveLeagueInfo(id: 0, name: leagueDisplayName, season: nil),
+            startTime: match.date,
+            periods: periods
+        )
+    }
 }

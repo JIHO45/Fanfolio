@@ -1,0 +1,6 @@
+// Fanfolio 앱 타깃 전용 빌드 설정 (커밋됨)
+// API-Sports 키: 같은 폴더에 APIKeys.xcconfig를 두세요( gitignore됨 ).
+//   cp APIKeys.xcconfig.example APIKeys.xcconfig
+//   후 API_SPORTS_KEY 값을 입력합니다.
+API_SPORTS_KEY =
+#include? "APIKeys.xcconfig"

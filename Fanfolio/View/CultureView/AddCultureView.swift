@@ -21,6 +21,7 @@ struct AddCultureView: View {
     @State private var title = ""
     @State private var artist = ""
     @State private var date = Date()
+    @State private var includeTime = false
     @State private var location = ""
     @State private var seatInfo = ""
     @State private var rating = 0
@@ -77,7 +78,7 @@ extension AddCultureView {
         Section {
             Picker("상태", selection: $eventStatus) {
                 ForEach(EventStatus.allCases) { status in
-                    Label(status.rawValue, systemImage: status.iconName)
+                    Label(status.displayName, systemImage: status.iconName)
                         .tag(status)
                 }
             }
@@ -133,7 +134,7 @@ extension AddCultureView {
         }
     }
     
-    private var ratingText: String {
+    private var ratingText: LocalizedStringKey {
         switch rating {
         case 5: return "최고의 경험!"
         case 4: return "매우 좋았어요"
@@ -147,51 +148,23 @@ extension AddCultureView {
     private var dateLocationSection: some View {
         Section("날짜 · 장소") {
             DatePicker("날짜", selection: $date, displayedComponents: .date)
+            Toggle(isOn: $includeTime.animation()) {
+                Label("시간 설정", systemImage: "clock")
+            }
+            if includeTime {
+                DatePicker("시간", selection: $date, displayedComponents: .hourAndMinute)
+            }
             TextField("장소 (선택)", text: $location)
             TextField("좌석 정보 (선택)", text: $seatInfo)
         }
     }
     
     private var ticketPhotoSection: some View {
-        Section {
-            PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                if let data = qrCodeImageData,
-                   let uiImage = UIImage(data: data) {
-                    VStack(spacing: 8) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: 200)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                        
-                        if qrDetected {
-                            Label("QR코드 자동 감지됨", systemImage: "checkmark.circle.fill")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(.green)
-                        }
-                        
-                        Text("탭하여 변경")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Label("티켓 · QR코드 사진 추가", systemImage: "qrcode.viewfinder")
-                        .foregroundStyle(.blue)
-                }
-            }
-            
-            if qrCodeImageData != nil {
-                Button("사진 삭제", role: .destructive) {
-                    qrCodeImageData = nil
-                    selectedPhoto = nil
-                    qrDetected = false
-                }
-            }
-        } header: {
-            Text("티켓 · QR코드")
-        } footer: {
-            Text("사진에 QR코드가 포함되어 있으면 자동으로 감지하여 QR 영역만 추출합니다.")
-        }
+        TicketPhotoSectionView(
+            selectedPhoto: $selectedPhoto,
+            qrCodeImageData: $qrCodeImageData,
+            qrDetected: $qrDetected
+        )
     }
     
     private var eventPhotosSection: some View {
@@ -277,17 +250,25 @@ extension AddCultureView {
     }
     
     private func saveEvent() {
+        var photoPaths: [String]?
+        if !photosData.isEmpty {
+            let batchID = UUID()
+            photoPaths = (0..<photosData.count).compactMap { i -> String? in
+                try? ArchivePhotoStore.savePhoto(photosData[i], itemID: batchID, index: i, folder: .culture)
+            }
+        }
         let event = CultureModel(
             title: title,
             artist: artist.isEmpty ? nil : artist,
-            date: date,
+            date: includeTime ? date : Calendar.current.startOfDay(for: date),
             location: location.isEmpty ? nil : location,
             seatInfo: seatInfo.isEmpty ? nil : seatInfo,
             rating: rating,
             eventStatus: eventStatus,
             memo: memo.isEmpty ? nil : memo,
             qrCodeImageData: qrCodeImageData,
-            photosData: photosData.isEmpty ? nil : photosData,
+            photosData: nil,
+            photoPaths: photoPaths,
             orderIndex: nextOrderIndex
         )
         event.folder = folder

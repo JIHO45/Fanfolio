@@ -6,362 +6,500 @@
 //
 
 import SwiftUI
-import CoreImage
-import CoreImage.CIFilterBuiltins
 import UIKit
+
+// MARK: - 티켓 디자인 스타일
+
+enum TicketDesignStyle: CaseIterable {
+    case standard     // 수평 텍스트 상단 중앙
+    case rotatedText  // 90도 회전, 카드 왼쪽 배치
+    case customText   // 사용자 입력 텍스트 (Sports + Culture 공용)
+
+    var label: LocalizedStringKey {
+        switch self {
+        case .standard:    return "기본"
+        case .rotatedText: return "세로"
+        case .customText:  return "내 글"
+        }
+    }
+}
+
+// MARK: - 공용 커스텀 텍스트 오버레이
+// Sports와 Culture 티켓 카드에서 공통으로 사용하는 오버레이 레이어
+
+struct TicketCustomTextOverlay: View {
+    let text: String
+    let cardWidth: CGFloat
+    let cardHeight: CGFloat
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Text("FANFOLIO")
+                    .font(.system(size: 10, weight: .black))
+                    .tracking(4.5)
+                    .foregroundStyle(.white.opacity(0.50))
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+
+            Text(text)
+                .font(.system(size: 54, weight: .black))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.45), radius: 24, y: 10)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.6)
+                .frame(maxWidth: cardWidth - 40, alignment: .center)
+                .padding(.top, cardHeight * 0.11)
+
+            Spacer()
+        }
+        .frame(width: cardWidth, height: cardHeight, alignment: .top)
+    }
+}
 
 // MARK: - 매치 티켓 데이터 모델
 
 struct MatchTicketModel {
     var teamName: String
-    /// 팀 닉네임 (워터마크 + 대형 타이포 용, e.g. "49ers", "트윈스")
-    var teamNickname: String
     var opponentTeam: String
     var myTeamScore: Int
     var opponentScore: Int
     var matchResult: MatchResult
     var matchStatus: MatchStatus
     var sportType: SportType
-    var isHomeGame: Bool
-    var gameNumber: Int
     var teamColor: Color
     var teamLogoImage: UIImage?
     var opponentLogoImage: UIImage?
-    /// 선수 누끼 이미지 (없으면 팀 로고 fallback)
-    var playerCutoutImage: UIImage?
+    var userPhoto: UIImage? = nil
+    /// Vision으로 추출한 누끼 이미지 (사람이 없으면 nil)
+    var userPhotoCutout: UIImage? = nil
+    /// 드래그 패닝 오프셋 (디자인 좌표 기준)
+    var photoOffset: CGSize = .zero
+    /// 핀치 줌 스케일 (1.0 = 기본)
+    var photoScale: CGFloat = 1.0
     var date: Date?
-    var location: String?
-    var style: ShareStyle
-    /// 티켓 스텁용 좌석 정보
-    var sec: String
-    var row: String
-    var seat: String
+    var leagueCode: String?
+    var designStyle: TicketDesignStyle = .standard
+    var customOverlayText: String? = nil
 }
 
-// MARK: - 노이즈 텍스처 뷰
+// MARK: - 모델 헬퍼
 
-/// CIRandomGenerator 필터로 흑백 그레인 노이즈를 생성해 표시.
-/// static 프로퍼티로 한 번만 렌더링해 재사용 (ImageRenderer 호환).
-struct NoiseTextureView: View {
+private extension MatchTicketModel {
+    var resultHeadline: String {
+        switch matchStatus {
+        case .completed:
+            switch matchResult {
+            case .win:  return "WIN"
+            case .loss: return "DEFEAT"
+            case .draw: return "DRAW"
+            }
+        case .live:     return "LIVE"
+        case .upcoming: return "MATCHDAY"
+        }
+    }
 
-    static let noiseImage: UIImage? = {
-        guard let randomFilter = CIFilter(name: "CIRandomGenerator"),
-              let rawNoise = randomFilter.outputImage else { return nil }
-
-        // 흑백 변환 + 대비 강화
-        guard let colorFilter = CIFilter(name: "CIColorControls") else { return nil }
-        colorFilter.setValue(
-            rawNoise.cropped(to: CGRect(origin: .zero, size: CGSize(width: 512, height: 256))),
-            forKey: kCIInputImageKey
-        )
-        colorFilter.setValue(0.0, forKey: kCIInputSaturationKey)
-        colorFilter.setValue(0.0, forKey: kCIInputBrightnessKey)
-        colorFilter.setValue(1.8, forKey: kCIInputContrastKey)
-
-        guard let processed = colorFilter.outputImage else { return nil }
-        let cropRect = CGRect(origin: .zero, size: CGSize(width: 512, height: 256))
-        let ctx = CIContext(options: [.useSoftwareRenderer: false])
-        guard let cg = ctx.createCGImage(processed, from: cropRect) else { return nil }
-        return UIImage(cgImage: cg)
-    }()
-
-    var body: some View {
-        if let img = Self.noiseImage {
-            Image(uiImage: img)
-                .resizable()
-                .scaledToFill()
+    var resultColor: Color {
+        switch matchStatus {
+        case .completed:
+            switch matchResult {
+            case .win:  return Color(red: 0.20, green: 0.90, blue: 0.45)
+            case .loss: return Color(red: 1.00, green: 0.28, blue: 0.28)
+            case .draw: return Color(red: 1.00, green: 0.65, blue: 0.10)
+            }
+        case .live:     return Color(red: 1.00, green: 0.28, blue: 0.28)
+        case .upcoming: return .white
         }
     }
 }
 
-// MARK: - 수직 점선 절취선
+// MARK: - 날짜 포맷터
 
-private struct VerticalDashLine: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
-        return path
-    }
+private extension DateFormatter {
+    static let ticketDate: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale.autoupdatingCurrent
+        f.setLocalizedDateFormatFromTemplate("MMMdyyyy")
+        return f
+    }()
+
+    static let ticketTime: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale.autoupdatingCurrent
+        f.timeStyle = .short
+        return f
+    }()
 }
 
-// MARK: - 매치 티켓 카드 뷰
+// MARK: - 매치 티켓 카드 뷰 (9:16 세로형)
+//
+//  구조:
+//  ┌────────────────────────────┐
+//  │           FANFOLIO  [우상단]│
+//  │                            │
+//  │          WIN / DEFEAT      │  ← 상단 중앙, 크게
+//  │                            │
+//  │                            │
+//  │  ┌──────────────────────┐  │
+//  │  │ 🔴 VS 🔵 │ 3 - 1  WIN│  │  ← 하단 바
+//  │  └──────────────────────┘  │
+//  └────────────────────────────┘
 
 struct MatchTicketCardView: View {
     let model: MatchTicketModel
 
-    // MARK: - 왼쪽 메인 패널
+    /// 디자인 좌표 (pt). @3x 렌더링 시 1080×1920 px
+    static let designWidth: CGFloat  = 360
+    static let designHeight: CGFloat = 640
 
-    private var leftPanel: some View {
-        ZStack(alignment: .bottomLeading) {
-
-            // 1. 배경 그라디언트 (팀 컬러 → 검정)
-            LinearGradient(
-                colors: [
-                    model.style == .light
-                        ? model.teamColor
-                        : model.teamColor.opacity(0.85),
-                    Color.black
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            // 2. 노이즈 텍스처 (콘크리트/그레인 질감)
-            NoiseTextureView()
-                .opacity(model.style == .light ? 0.12 : 0.20)
-                .blendMode(.multiply)
-                .clipped()
-
-            // 3. 팀 닉네임 워터마크 (거대, 비스듬)
-            Text(model.teamNickname.uppercased())
-                .font(.system(size: 104, weight: .black))
-                .foregroundStyle(Color.white.opacity(0.07))
-                .rotationEffect(.degrees(-10))
-                .fixedSize()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-
-            // 4. 선수 누끼 / 팀 로고 (우측, 하단 페이드 마스크)
-            HStack(spacing: 0) {
-                Spacer()
-                Group {
-                    if let playerImg = model.playerCutoutImage {
-                        Image(uiImage: playerImg)
-                            .resizable()
-                            .scaledToFit()
-                    } else if let logoImg = model.teamLogoImage {
-                        Image(uiImage: logoImg)
-                            .resizable()
-                            .scaledToFit()
-                            .padding(32)
-                            .opacity(0.22)
-                    }
-                }
-                .frame(height: 235)
-                .mask(
-                    LinearGradient(
-                        colors: [.black, .black, .black.opacity(0.65), .clear],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .shadow(color: .black.opacity(0.55), radius: 16, x: -6, y: 4)
-            }
-
-            // 5. 전경 타이포그래피 (좌하단)
-            VStack(alignment: .leading, spacing: 4) {
-
-                // GAME N 배지
-                Text("GAME \(model.gameNumber)")
-                    .font(.system(size: 10, weight: .black))
-                    .foregroundStyle(model.teamColor)
-                    .tracking(1.5)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 3))
-
-                // 팀 닉네임 (대형 헤드라인)
-                Text(model.teamNickname.uppercased())
-                    .font(.system(size: 30, weight: .black))
-                    .foregroundStyle(Color.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.4)
-                    .shadow(color: .black.opacity(0.6), radius: 4)
-
-                // 점수 또는 VS
-                if model.matchStatus == .completed {
-                    HStack(alignment: .center, spacing: 6) {
-                        Text("\(model.myTeamScore)")
-                            .font(.system(size: 38, weight: .black, design: .rounded))
-                            .foregroundStyle(Color.white)
-                            .monospacedDigit()
-
-                        Text("—")
-                            .font(.system(size: 18, weight: .thin))
-                            .foregroundStyle(Color.white.opacity(0.4))
-
-                        Text("\(model.opponentScore)")
-                            .font(.system(size: 38, weight: .black, design: .rounded))
-                            .foregroundStyle(Color.white.opacity(0.52))
-                            .monospacedDigit()
-
-                        Text(model.matchResult.rawValue)
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(Color.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(model.matchResult.color)
-                            .clipShape(RoundedRectangle(cornerRadius: 3))
-                    }
-                } else {
-                    HStack(spacing: 4) {
-                        Text("VS")
-                            .font(.system(size: 13, weight: .heavy))
-                            .foregroundStyle(Color.white.opacity(0.5))
-                        Text(model.opponentTeam)
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Color.white.opacity(0.75))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                    }
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 14)
-        }
-    }
-
-    // MARK: - 오른쪽 스텁
-
-    private func stubRow(title: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(title)
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(Color.red)
-                .tracking(1.5)
-            Text(value)
-                .font(.system(size: 20, weight: .black, design: .rounded))
-                .foregroundStyle(Color.white)
-                .minimumScaleFactor(0.5)
-                .lineLimit(1)
-        }
-    }
-
-    private var rightStub: some View {
-        ZStack {
-            Color.black
-
-            VStack(spacing: 0) {
-                // 스포츠 종목 아이콘
-                Image(systemName: model.sportType.iconName)
-                    .font(.system(size: 13))
-                    .foregroundStyle(model.teamColor)
-                    .padding(.top, 14)
-
-                Rectangle()
-                    .fill(Color.white.opacity(0.08))
-                    .frame(height: 1)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-
-                // 좌석 정보
-                VStack(spacing: 10) {
-                    stubRow(title: "SEC", value: model.sec)
-                    stubRow(title: "ROW", value: model.row)
-                    stubRow(title: "SEAT", value: model.seat)
-                }
-
-                Spacer()
-
-                // 세로 바코드
-                Image(systemName: "barcode")
-                    .font(.system(size: 26))
-                    .foregroundStyle(Color.white.opacity(0.6))
-                    .rotationEffect(.degrees(-90))
-                    .padding(.bottom, 14)
-            }
-        }
-        .frame(width: 76)
-    }
-
-    // MARK: - Body
+    private let W = MatchTicketCardView.designWidth
+    private let H = MatchTicketCardView.designHeight
 
     var body: some View {
-        HStack(spacing: 0) {
-            leftPanel
-
-            VerticalDashLine()
-                .stroke(style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
-                .foregroundStyle(Color.white.opacity(0.3))
-                .frame(width: 1)
-
-            rightStub
+        ZStack(alignment: .bottom) {
+            // 1. 배경 (팀 컬러 or 원본 사진)
+            backgroundLayer
+            // 2. 오버레이 텍스트 (WIN / DEFEAT 등)
+            overlayLayer
+            // 3. 누끼 이미지 — 텍스트 위에 올라와 뚫고 나오는 효과
+            photoCutoutLayer
+            // 4. 하단 그라디언트 + 스코어 바
+            bottomGradient
+            footerBar
+                .padding(.horizontal, 20)
+                .padding(.bottom, 22)
         }
-        .frame(height: 220)
-        .clipShape(RoundedRectangle(cornerRadius: 15))
+        .frame(width: W, height: H)
+        .clipped()
+        .drawingGroup()
+    }
+
+    // MARK: - 배경
+
+    @ViewBuilder
+    private var backgroundLayer: some View {
+        if let photo = model.userPhoto {
+            let fillScale = max(W / max(1, photo.size.width),
+                                H / max(1, photo.size.height)) * model.photoScale
+            let drawW = photo.size.width * fillScale
+            let drawH = photo.size.height * fillScale
+            Image(uiImage: photo)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: drawW, height: drawH)
+                .offset(model.photoOffset)
+                .frame(width: W, height: H, alignment: .center)
+                .clipped()
+        } else {
+            ZStack {
+                Rectangle().fill(model.teamColor)
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.52)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .frame(width: W, height: H)
+        }
+    }
+
+    // MARK: - 누끼 레이어 (원본 사진과 동일한 좌표로 렌더링)
+
+    @ViewBuilder
+    private var photoCutoutLayer: some View {
+        if let cutout = model.userPhotoCutout,
+           let photo = model.userPhoto {
+            let fillScale = max(W / max(1, photo.size.width),
+                                H / max(1, photo.size.height)) * model.photoScale
+            let drawW = photo.size.width * fillScale
+            let drawH = photo.size.height * fillScale
+            Image(uiImage: cutout)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: drawW, height: drawH)
+                .offset(model.photoOffset)
+                .frame(width: W, height: H, alignment: .center)
+                .clipped()
+        }
+    }
+
+    // MARK: - 오버레이 (디자인 스타일별 분기)
+
+    @ViewBuilder
+    private var overlayLayer: some View {
+        switch model.designStyle {
+        case .standard:
+            standardOverlay
+        case .rotatedText:
+            rotatedTextOverlay
+        case .customText:
+            TicketCustomTextOverlay(
+                text: model.customOverlayText ?? String(localized: "ticket.overlay.placeholder", defaultValue: "여기에 글을 입력하세요"),
+                cardWidth: W,
+                cardHeight: H
+            )
+        }
+    }
+
+    // 기본: 수평 결과 텍스트 + 워터마크
+    private var standardOverlay: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Text("FANFOLIO")
+                    .font(.system(size: 10, weight: .black))
+                    .tracking(4.5)
+                    .foregroundStyle(.white.opacity(0.50))
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+
+            Text(model.resultHeadline)
+                .font(.system(size: 58, weight: .black))
+                .foregroundStyle(model.resultColor)
+                .shadow(color: model.resultColor.opacity(0.45), radius: 28, y: 10)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, H * 0.13)
+
+            Spacer()
+        }
+        .frame(width: W, height: H, alignment: .top)
+    }
+
+    // 세로: 결과 텍스트를 90도 회전하여 왼쪽에 배치
+    private var rotatedTextOverlay: some View {
+        ZStack {
+            // 워터마크
+            VStack {
+                HStack {
+                    Spacer()
+                    Text("FANFOLIO")
+                        .font(.system(size: 10, weight: .black))
+                        .tracking(4.5)
+                        .foregroundStyle(.white.opacity(0.50))
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+                Spacer()
+            }
+
+            // 90도 회전 텍스트 — 왼쪽 세로 배치 (카드 중앙 높이 기준)
+            Text(model.resultHeadline)
+                .font(.system(size: 76, weight: .black))
+                .foregroundStyle(model.resultColor)
+                .shadow(color: model.resultColor.opacity(0.45), radius: 28, y: 10)
+                .fixedSize()
+                .rotationEffect(.degrees(-90))
+                // 회전 후: 텍스트의 중심을 카드 왼쪽 가장자리 + 텍스트 높이/2 위치에 배치
+                .position(x: 42, y: H * 0.42)
+        }
+        .frame(width: W, height: H)
+    }
+
+    // MARK: - 하단 그라디언트
+
+    private var bottomGradient: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0),
+                    .init(color: .black.opacity(0.55), location: 0.40),
+                    .init(color: .black.opacity(0.90), location: 1)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+            .frame(height: H * 0.40)
+        }
+        .frame(width: W, height: H)
+    }
+
+    // MARK: - 스코어 뷰
+
+    @ViewBuilder
+    private var scoreView: some View {
+        if model.matchStatus == .completed {
+            HStack(spacing: 6) {
+                Text("\(model.myTeamScore)")
+                Text("-").foregroundStyle(Color.black.opacity(0.4))
+                Text("\(model.opponentScore)")
+            }
+            .font(.system(size: 28, weight: .black))
+            .foregroundStyle(Color.black)
+            .monospacedDigit()
+        } else {
+            HStack(spacing: 6) {
+                if model.matchStatus == .live {
+                    Circle().fill(Color.red).frame(width: 7, height: 7)
+                }
+                Text(model.matchStatus == .live ? "LIVE" : "UPCOMING")
+            }
+            .font(.system(size: 16, weight: .black))
+            .foregroundStyle(Color.black)
+        }
+    }
+
+    // MARK: - 하단 바
+
+    private var footerBar: some View {
+        return HStack(spacing: 12) {
+            HStack(spacing: 6) {
+                footerLogo(image: model.teamLogoImage)
+                Text("VS")
+                    .font(.system(size: 8, weight: .black))
+                    .foregroundStyle(Color.black.opacity(0.45))
+                footerLogo(image: model.opponentLogoImage)
+            }
+            .frame(width: 72, alignment: .leading)
+
+            Rectangle()
+                .fill(Color.black.opacity(0.10))
+                .frame(width: 1, height: 30)
+
+            scoreView
+
+            Spacer(minLength: 10)
+
+            footerMetaInfo
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.94)))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.18), lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.22), radius: 16, y: 8)
+    }
+
+    @ViewBuilder
+    private var footerMetaInfo: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text(model.resultHeadline)
+                .font(.system(size: 8, weight: .black))
+                .foregroundStyle(Color.black.opacity(0.72))
+                .tracking(1.2)
+            if let date = model.date {
+                let cal = Calendar.current
+                let hasTime = cal.component(.hour, from: date) != 0 || cal.component(.minute, from: date) != 0
+                if model.matchStatus == .upcoming && hasTime {
+                    HStack(spacing: 3) {
+                        Text(DateFormatter.ticketDate.string(from: date))
+                            .font(.system(size: 7, weight: .semibold))
+                            .foregroundStyle(Color.black.opacity(0.48))
+                        Text(DateFormatter.ticketTime.string(from: date))
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundStyle(Color(red: 0.12, green: 0.35, blue: 0.85))
+                    }
+                    .lineLimit(1)
+                } else {
+                    Text(DateFormatter.ticketDate.string(from: date))
+                        .font(.system(size: 7, weight: .semibold))
+                        .foregroundStyle(Color.black.opacity(0.48))
+                        .lineLimit(1)
+                }
+            } else if let league = model.leagueCode {
+                Text(league)
+                    .font(.system(size: 7, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.48))
+                    .tracking(0.8)
+            }
+        }
+    }
+
+    private func footerLogo(image: UIImage?) -> some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Circle()
+                    .fill(model.teamColor.opacity(0.18))
+                    .overlay(
+                        Image(systemName: model.sportType.iconName)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(model.teamColor)
+                    )
+            }
+        }
+        .frame(width: 24, height: 24)
     }
 }
 
 // MARK: - Preview
 
-#Preview("완료 - 미식축구 (다크)") {
+#Preview("WIN - 미식축구") {
     MatchTicketCardView(model: MatchTicketModel(
         teamName: "San Francisco 49ers",
-        teamNickname: "49ers",
         opponentTeam: "Kansas City Chiefs",
         myTeamScore: 31,
         opponentScore: 20,
         matchResult: .win,
         matchStatus: .completed,
         sportType: .americanFootball,
-        isHomeGame: true,
-        gameNumber: 1,
         teamColor: Color(red: 0.67, green: 0.13, blue: 0.17),
         teamLogoImage: nil,
         opponentLogoImage: nil,
-        playerCutoutImage: nil,
         date: Date(),
-        location: "Levi's Stadium",
-        style: .dark,
-        sec: "C7",
-        row: "12",
-        seat: "5"
+        leagueCode: "NFL"
     ))
     .padding()
     .background(Color(red: 0.08, green: 0.08, blue: 0.10))
 }
 
-#Preview("완료 - 농구 (라이트)") {
+#Preview("DEFEAT - 농구") {
     MatchTicketCardView(model: MatchTicketModel(
         teamName: "Detroit Pistons",
-        teamNickname: "Pistons",
         opponentTeam: "LA Lakers",
         myTeamScore: 87,
-        opponentScore: 75,
-        matchResult: .win,
+        opponentScore: 102,
+        matchResult: .loss,
         matchStatus: .completed,
         sportType: .basketball,
-        isHomeGame: false,
-        gameNumber: 1,
         teamColor: Color(red: 0.0, green: 0.36, blue: 0.70),
         teamLogoImage: nil,
         opponentLogoImage: nil,
-        playerCutoutImage: nil,
         date: Date(),
-        location: "Little Caesars Arena",
-        style: .light,
-        sec: "A3",
-        row: "7",
-        seat: "22"
+        leagueCode: "NBA"
     ))
     .padding()
     .background(Color(red: 0.08, green: 0.08, blue: 0.10))
 }
 
-#Preview("예정 - 야구") {
+#Preview("MATCHDAY - 야구") {
     MatchTicketCardView(model: MatchTicketModel(
         teamName: "LG 트윈스",
-        teamNickname: "트윈스",
         opponentTeam: "두산 베어스",
         myTeamScore: 0,
         opponentScore: 0,
         matchResult: .draw,
         matchStatus: .upcoming,
         sportType: .baseball,
-        isHomeGame: true,
-        gameNumber: 3,
         teamColor: Color(red: 0.80, green: 0.08, blue: 0.12),
         teamLogoImage: nil,
         opponentLogoImage: nil,
-        playerCutoutImage: nil,
         date: Date(),
-        location: "잠실 야구장",
-        style: .dark,
-        sec: "3루",
-        row: "E",
-        seat: "17"
+        leagueCode: "KBO"
+    ))
+    .padding()
+    .background(Color(red: 0.08, green: 0.08, blue: 0.10))
+}
+
+#Preview("LIVE - 축구") {
+    MatchTicketCardView(model: MatchTicketModel(
+        teamName: "Arsenal FC",
+        opponentTeam: "Chelsea FC",
+        myTeamScore: 2,
+        opponentScore: 1,
+        matchResult: .win,
+        matchStatus: .live,
+        sportType: .soccer,
+        teamColor: Color(red: 0.80, green: 0.0, blue: 0.0),
+        teamLogoImage: nil,
+        opponentLogoImage: nil,
+        date: Date(),
+        leagueCode: "ENG.1"
     ))
     .padding()
     .background(Color(red: 0.08, green: 0.08, blue: 0.10))

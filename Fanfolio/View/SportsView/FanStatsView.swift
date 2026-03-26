@@ -6,133 +6,107 @@
 //
 
 import SwiftUI
+import Kingfisher
 
 struct FanStatsView: View {
     let folder: SportsFanFolder
     
     @State private var showingSharePreviewSheet = false
-    
-    // MARK: - 통계 계산기
-    /// FanStatsCalculator에 경기 배열을 주입합니다.
-    /// 로직을 View와 분리했기 때문에 테스트 코드에서 View 없이도 이 계산기를 검증할 수 있습니다.
-    private var calc: FanStatsCalculator { FanStatsCalculator(matches: folder.matches) }
-
-    // MARK: - 기본 통계 (FanStatsCalculator에 위임)
-    private var completedMatches: [SportsModel] { calc.completedMatches }
-    private var wins:             Int           { calc.wins }
-    private var losses:           Int           { calc.losses }
-    private var draws:            Int           { calc.draws }
-    private var totalCompleted:   Int           { calc.totalCompleted }
-    private var winRate:          Double        { calc.winRate }
-    private var luckyInfo: (emoji: String, title: String, subtitle: String) { calc.luckyInfo }
-    private var maxWinStreak:     Int           { calc.maxWinStreak }
-    private var opponentRecords: [OpponentRecord] { calc.opponentRecords }
-
-    private var homeMatches: [SportsModel] { completedMatches.filter {  $0.isHomeGame } }
-    private var awayMatches: [SportsModel] { completedMatches.filter { !$0.isHomeGame } }
+    @State private var statsResult: FanStatsResult?
+    @State private var isComputing = false
 
     private var rateColor: Color {
-        winRate >= 50 ? .green : (winRate >= 30 ? .orange : .red)
+        guard let r = statsResult else { return .secondary }
+        return r.winRate >= 50 ? .green : (r.winRate >= 30 ? .orange : .red)
     }
-    
-    // MARK: - 월별 데이터 (최근 12개월)
-    private var monthlyData: [MonthlyRecord] {
-        let calendar = Calendar.current
-        return (0..<12).reversed().compactMap { i -> MonthlyRecord? in
-            guard let date = calendar.date(byAdding: .month, value: -i, to: Date()) else { return nil }
-            let month = calendar.component(.month, from: date)
-            let year = calendar.component(.year, from: date)
-            let count = completedMatches.filter { match in
-                guard let d = match.date else { return false }
-                return calendar.component(.month, from: d) == month
-                    && calendar.component(.year, from: d) == year
-            }.count
-            return MonthlyRecord(month: month, count: count)
-        }
-    }
-    
-    // MARK: - 마일스톤
-    private var milestones: [FanMilestone] {
-        let hasAway = completedMatches.contains { !$0.isHomeGame }
-        let shutoutWin = completedMatches.contains { $0.matchResult == .win && $0.opponentScore == 0 }
-        let homeWins = homeMatches.filter { $0.matchResult == .win }.count
-        let awayCount = awayMatches.count
-        let hasRival = opponentRecords.contains { $0.total >= 5 }
-        
-        return [
-            FanMilestone(id: "first", emoji: "🎫", title: "첫 직관", desc: "첫 경기 기록", isUnlocked: totalCompleted >= 1),
-            FanMilestone(id: "ten", emoji: "⭐️", title: "10회 직관", desc: "10경기 기록 달성", isUnlocked: totalCompleted >= 10),
-            FanMilestone(id: "twentyfive", emoji: "🌟", title: "25회 직관", desc: "25경기 기록 달성", isUnlocked: totalCompleted >= 25),
-            FanMilestone(id: "fifty", emoji: "💫", title: "50회 직관", desc: "50경기 기록 달성", isUnlocked: totalCompleted >= 50),
-            FanMilestone(id: "hundred", emoji: "🏆", title: "100회 직관", desc: "100경기 기록 달성", isUnlocked: totalCompleted >= 100),
-            FanMilestone(id: "away", emoji: "🚌", title: "첫 원정", desc: "원정 경기 기록", isUnlocked: hasAway),
-            FanMilestone(id: "streak3", emoji: "🔥", title: "3연승 목격", desc: "연속 3승 달성", isUnlocked: maxWinStreak >= 3),
-            FanMilestone(id: "streak5", emoji: "⚡️", title: "5연승 목격", desc: "연속 5승 달성", isUnlocked: maxWinStreak >= 5),
-            FanMilestone(id: "shutout", emoji: "🛡️", title: "완봉승 목격", desc: "상대 무득점 승리", isUnlocked: shutoutWin),
-            FanMilestone(id: "rival", emoji: "🎯", title: "라이벌 마니아", desc: "같은 상대 5경기 이상", isUnlocked: hasRival),
-            FanMilestone(id: "home10", emoji: "🏠", title: "홈 지킴이", desc: "홈경기 10승 이상", isUnlocked: homeWins >= 10),
-            FanMilestone(id: "road5", emoji: "⚔️", title: "원정 전사", desc: "원정 5경기 이상", isUnlocked: awayCount >= 5),
-        ]
-    }
-    
-    private var unlockedMilestones: [FanMilestone] { milestones.filter { $0.isUnlocked } }
-    
+
+    private static let milestoneDefinitions: [(id: String, emoji: String, title: LocalizedStringKey, desc: LocalizedStringKey)] = [
+        ("first", "🎫", "첫 직관", "첫 경기 기록"),
+        ("ten", "⭐️", "10회 직관", "10경기 기록 달성"),
+        ("twentyfive", "🌟", "25회 직관", "25경기 기록 달성"),
+        ("fifty", "💫", "50회 직관", "50경기 기록 달성"),
+        ("hundred", "🏆", "100회 직관", "100경기 기록 달성"),
+        ("away", "🚌", "첫 원정", "원정 경기 기록"),
+        ("streak3", "🔥", "3연승 목격", "연속 3승 달성"),
+        ("streak5", "⚡️", "5연승 목격", "연속 5승 달성"),
+        ("shutout", "🛡️", "완봉승 목격", "상대 무득점 승리"),
+        ("rival", "🎯", "라이벌 마니아", "같은 상대 5경기 이상"),
+        ("home10", "🏠", "홈 지킴이", "홈경기 10승 이상"),
+        ("road5", "⚔️", "원정 전사", "원정 5경기 이상"),
+    ]
+
     // MARK: - Body
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 20) {
-                if totalCompleted == 0 {
+                if isComputing {
+                    ProgressView("통계 계산 중…")
+                        .frame(maxWidth: .infinity)
+                        .padding(40)
+                } else if let r = statsResult, r.totalCompleted == 0 {
                     ContentUnavailableView(
                         "완료된 경기가 없습니다",
                         systemImage: "chart.bar",
                         description: Text("경기를 완료로 기록하면 통계가 나타납니다.")
                     )
-                } else {
-                    luckyFanCard
-                    recordSummaryCard
-                    opponentSection
-                    heatmapSection
-                    milestoneSection
-                    seasonReportButton
+                } else if let r = statsResult {
+                    luckyFanCard(r)
+                    recordSummaryCard(r)
+                    opponentSection(r)
+                    heatmapSection(r)
+                    milestoneSection(r)
+                    seasonReportButton(r)
                 }
             }
             .padding()
         }
         .navigationTitle("팬 통계")
         .background(Color(uiColor: .systemGroupedBackground))
+        // 경기 추가·수정·폴더 메타 변경 시 통계를 다시 계산
+        .task(id: folder.fanfolioFolderTaskToken) { await computeStats() }
         .sheet(isPresented: $showingSharePreviewSheet) {
             SharePreviewView { style in
                 await Task { generateSeasonReport(style: style) }.value
             }
         }
     }
+
+    /// 메인에서 DTO로 매핑 후 백그라운드에서 계산, 결과만 메인에 반영.
+    private func computeStats() async {
+        isComputing = true
+        let dto = folder.matches.map { MatchStatDTO(from: $0) }
+        let result = await Task.detached(priority: .userInitiated) {
+            FanStatsCalculator(data: dto).compute()
+        }.value
+        statsResult = result
+        isComputing = false
+    }
 }
 
 // MARK: - 럭키팬 지수 카드
 extension FanStatsView {
-    private var luckyFanCard: some View {
+    private func luckyFanCard(_ r: FanStatsResult) -> some View {
         VStack(spacing: 16) {
-            Text(luckyInfo.emoji)
+            Text(r.luckyInfo.emoji)
                 .font(.system(size: 52))
             
-            Text(luckyInfo.title)
+            Text(r.luckyInfo.title)
                 .font(.title2.bold())
             
-            Text(luckyInfo.subtitle)
+            Text(r.luckyInfo.subtitle)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             
-            // 승률 원형 프로그레스
             ZStack {
                 Circle()
                     .stroke(Color.secondary.opacity(0.12), lineWidth: 10)
                 Circle()
-                    .trim(from: 0, to: winRate / 100)
+                    .trim(from: 0, to: r.winRate / 100)
                     .stroke(rateColor, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                    .animation(.easeOut(duration: 0.8), value: winRate)
+                    .animation(.easeOut(duration: 0.8), value: r.winRate)
                 VStack(spacing: 2) {
-                    Text("\(Int(winRate))%")
+                    Text("\(Int(r.winRate))%")
                         .font(.system(size: 28, weight: .heavy, design: .rounded))
                     Text("승률")
                         .font(.caption)
@@ -141,11 +115,11 @@ extension FanStatsView {
             }
             .frame(width: 110, height: 110)
             
-            if maxWinStreak >= 2 {
+            if r.maxWinStreak >= 2 {
                 HStack(spacing: 4) {
                     Image(systemName: "flame.fill")
                         .foregroundStyle(.orange)
-                    Text("최다 연승: \(maxWinStreak)연승")
+                    Text("최다 연승: \(r.maxWinStreak)연승")
                         .font(.caption.bold())
                 }
                 .padding(.horizontal, 12)
@@ -165,40 +139,37 @@ extension FanStatsView {
 
 // MARK: - 전적 요약 카드
 extension FanStatsView {
-    private var recordSummaryCard: some View {
+    private func recordSummaryCard(_ r: FanStatsResult) -> some View {
         VStack(spacing: 16) {
-            // 섹션 제목
             HStack {
                 Label("전적 요약", systemImage: "chart.bar.fill")
                     .font(.subheadline.bold())
                 Spacer()
-                Text("\(totalCompleted)경기")
+                Text("\(r.totalCompleted)경기")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             
-            // 승/패/무 숫자
             HStack(spacing: 0) {
-                statItem(value: "\(wins)", label: "승", color: .green)
-                statItem(value: "\(losses)", label: "패", color: .red)
-                statItem(value: "\(draws)", label: "무", color: .orange)
+                statItem(value: "\(r.wins)", label: "승", color: .green)
+                statItem(value: "\(r.losses)", label: "패", color: .red)
+                statItem(value: "\(r.draws)", label: "무", color: .orange)
             }
             
-            // 비율 바
             GeometryReader { geo in
-                let total = CGFloat(max(totalCompleted, 1))
+                let total = CGFloat(max(r.totalCompleted, 1))
                 HStack(spacing: 2) {
-                    if wins > 0 {
+                    if r.wins > 0 {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(MatchResult.win.color)
-                            .frame(width: max(geo.size.width * CGFloat(wins) / total, 8))
+                            .frame(width: max(geo.size.width * CGFloat(r.wins) / total, 8))
                     }
-                    if losses > 0 {
+                    if r.losses > 0 {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(MatchResult.loss.color)
-                            .frame(width: max(geo.size.width * CGFloat(losses) / total, 8))
+                            .frame(width: max(geo.size.width * CGFloat(r.losses) / total, 8))
                     }
-                    if draws > 0 {
+                    if r.draws > 0 {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(MatchResult.draw.color)
                     }
@@ -208,15 +179,12 @@ extension FanStatsView {
             
             Divider()
             
-            // 홈 vs 원정
             HStack(spacing: 0) {
-                homeAwayBlock(title: "홈", matches: homeMatches)
-                
+                homeAwayBlock(title: "홈", wins: r.homeWins, losses: r.homeLosses, draws: r.homeDraws)
                 Divider()
                     .frame(height: 50)
                     .padding(.horizontal, 16)
-                
-                homeAwayBlock(title: "원정", matches: awayMatches)
+                homeAwayBlock(title: "원정", wins: r.awayWins, losses: r.awayLosses, draws: r.awayDraws)
             }
         }
         .padding(20)
@@ -226,7 +194,7 @@ extension FanStatsView {
         )
     }
     
-    private func statItem(value: String, label: String, color: Color) -> some View {
+    private func statItem(value: String, label: LocalizedStringKey, color: Color) -> some View {
         VStack(spacing: 4) {
             Text(value)
                 .font(.system(size: 28, weight: .heavy, design: .rounded))
@@ -240,16 +208,16 @@ extension FanStatsView {
         .frame(maxWidth: .infinity)
     }
     
-    private func homeAwayBlock(title: String, matches: [SportsModel]) -> some View {
-        let w = matches.filter { $0.matchResult == .win }.count
-        let l = matches.filter { $0.matchResult == .loss }.count
-        let d = matches.filter { $0.matchResult == .draw }.count
-        
+    private func homeAwayBlock(title: LocalizedStringKey, wins: Int, losses: Int, draws: Int) -> some View {
+        let w = wins
+        let l = losses
+        let d = draws
+        let total = w + l + d
         return VStack(spacing: 6) {
             Text(title)
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
-            Text("\(matches.count)경기")
+            Text("\(total)경기")
                 .font(.subheadline.weight(.semibold))
             Text("\(w)승 \(l)패 \(d)무")
                 .font(.caption)
@@ -261,7 +229,7 @@ extension FanStatsView {
 
 // MARK: - 상대별 전적
 extension FanStatsView {
-    private var opponentSection: some View {
+    private func opponentSection(_ r: FanStatsResult) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Label("상대별 전적", systemImage: "person.2.fill")
@@ -269,7 +237,7 @@ extension FanStatsView {
                 Spacer()
             }
             
-            ForEach(opponentRecords) { record in
+            ForEach(r.opponentRecords) { record in
                 HStack {
                     Text(record.name)
                         .font(.subheadline.weight(.medium))
@@ -290,7 +258,7 @@ extension FanStatsView {
                 }
                 .padding(.vertical, 4)
                 
-                if record.id != opponentRecords.last?.id {
+                if record.id != r.opponentRecords.last?.id {
                     Divider()
                 }
             }
@@ -305,8 +273,9 @@ extension FanStatsView {
 
 // MARK: - 월별 히트맵
 extension FanStatsView {
-    private var heatmapSection: some View {
-        let maxCount = max(monthlyData.map(\.count).max() ?? 1, 1)
+    private func heatmapSection(_ r: FanStatsResult) -> some View {
+        let monthlyRecords = r.monthlyData.map { MonthlyRecord(month: $0.month, count: $0.count) }
+        let maxCount = max(monthlyRecords.map(\.count).max() ?? 1, 1)
         
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -318,9 +287,8 @@ extension FanStatsView {
                     .foregroundStyle(.secondary)
             }
             
-            // 히트맵 그리드
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 6), spacing: 6) {
-                ForEach(monthlyData) { data in
+                ForEach(monthlyRecords) { data in
                     VStack(spacing: 4) {
                         RoundedRectangle(cornerRadius: 6)
                             .fill(heatmapColor(count: data.count, max: maxCount))
@@ -378,13 +346,23 @@ extension FanStatsView {
 
 // MARK: - 마일스톤 뱃지
 extension FanStatsView {
-    private var milestoneSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private func milestoneSection(_ r: FanStatsResult) -> some View {
+        let milestones = Self.milestoneDefinitions.map { def in
+            FanMilestone(
+                id: def.id,
+                emoji: def.emoji,
+                title: def.title,
+                desc: def.desc,
+                isUnlocked: r.milestoneUnlocks[def.id] ?? false
+            )
+        }
+        let unlockedCount = milestones.filter(\.isUnlocked).count
+        return VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Label("직관 마일스톤", systemImage: "trophy.fill")
                     .font(.subheadline.bold())
                 Spacer()
-                Text("\(unlockedMilestones.count)/\(milestones.count)")
+                Text("\(unlockedCount)/\(milestones.count)")
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
             }
@@ -436,81 +414,152 @@ extension FanStatsView {
 }
 
 
-// MARK: - 선수 이미지 뷰 (누끼 / 일반 / fallback 자동 전환)
+// MARK: - 선수 이미지 뷰 (선수 사진 / 유니폼 이니셜 플레이스홀더 자동 전환)
 struct PlayerImageView: View {
-    let cutoutURL: String?
-    let photoURL: String?
+    let imageURL: String?
     let fallbackTeamLogoURL: String?
     let fallbackGradient: [Color]
     var size: CGFloat = 44
-    
+    var playerName: String = ""
+    var jerseyNumber: String? = nil
+    var sportType: SportType? = nil
+
+    private var teamColor: Color {
+        fallbackGradient.first ?? .blue
+    }
+
     var body: some View {
         ZStack {
-            if let cutoutStr = cutoutURL, let url = URL(string: cutoutStr) {
-                // 누끼 이미지 (투명 배경, TheSportsDB strCutout)
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFit()
-                    case .failure:
-                        fallbackView
-                    case .empty:
-                        ProgressView().scaleEffect(0.6)
-                    @unknown default:
-                        fallbackView
-                    }
-                }
-            } else if let photoStr = photoURL, let url = URL(string: photoStr) {
-                // 일반 선수 사진
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .clipped()
-                    case .failure:
-                        fallbackView
-                    default:
-                        ProgressView().scaleEffect(0.6)
-                    }
-                }
+            if let imgStr = imageURL, let url = URL(string: imgStr) {
+                KFImage.url(url)
+                    .placeholder { ProgressView().scaleEffect(0.6) }
+                    .onFailureView { initialsPlaceholder }
+                    .resizable()
+                    .scaledToFill()
+                    .clipped()
             } else {
-                fallbackView
+                initialsPlaceholder
             }
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: size * 0.18))
     }
-    
-    private var fallbackView: some View {
+
+    private var initialsPlaceholder: some View {
         ZStack {
             LinearGradient(
-                colors: fallbackGradient.map { $0.opacity(0.3) },
+                colors: fallbackGradient.map { $0.opacity(0.25) },
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            
-            if let logoStr = fallbackTeamLogoURL, let url = URL(string: logoStr) {
-                AsyncImage(url: url) { phase in
-                    if case .success(let image) = phase {
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .padding(8)
-                            .opacity(0.6)
-                    } else {
-                        Image(systemName: "person.fill")
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
+
+            // 유니폼 실루엣 (종목에 따라 농구 저지 / 반팔 저지)
+            Group {
+                if sportType == .basketball {
+                    BasketballJerseyShape()
+                        .fill(teamColor.opacity(0.20))
+                } else {
+                    ShortSleeveJerseyShape()
+                        .fill(teamColor.opacity(0.20))
                 }
-            } else {
-                Image(systemName: "person.fill")
-                    .foregroundStyle(.white.opacity(0.6))
+            }
+            .padding(size * 0.07)
+
+            VStack(spacing: 0) {
+                if let number = jerseyNumber, !number.isEmpty {
+                    Text("#\(number)")
+                        .font(.system(size: max(7, size * 0.16), weight: .bold))
+                        .foregroundStyle(teamColor.opacity(0.75))
+                }
+                Text(extractInitials(from: playerName))
+                    .font(.system(
+                        size: jerseyNumber == nil ? max(13, size * 0.36) : max(11, size * 0.30),
+                        weight: .heavy,
+                        design: .rounded
+                    ))
+                    .foregroundStyle(teamColor)
             }
         }
+    }
+
+    private func extractInitials(from name: String) -> String {
+        let parts = name.components(separatedBy: " ").filter { !$0.isEmpty }
+        if parts.count >= 2 {
+            return (String(parts[0].prefix(1)) + String((parts.last ?? "").prefix(1))).uppercased()
+        } else if let first = parts.first {
+            return String(first.prefix(2)).uppercased()
+        }
+        return "?"
+    }
+}
+
+// MARK: - 농구 저지 실루엣 (민소매)
+struct BasketballJerseyShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width
+        let h = rect.height
+        var p = Path()
+
+        // V넥 왼쪽 시작
+        p.move(to: CGPoint(x: 0.30 * w, y: 0.02 * h))
+        // V넥 곡선
+        p.addQuadCurve(
+            to: CGPoint(x: 0.70 * w, y: 0.02 * h),
+            control: CGPoint(x: 0.50 * w, y: 0.22 * h)
+        )
+        // 오른쪽 어깨 스트랩 상단
+        p.addLine(to: CGPoint(x: 0.92 * w, y: 0.06 * h))
+        // 오른쪽 암홀 (오목한 곡선 — 안으로 들어왔다가 내려감)
+        p.addQuadCurve(
+            to: CGPoint(x: 0.82 * w, y: 0.34 * h),
+            control: CGPoint(x: 1.04 * w, y: 0.20 * h)
+        )
+        // 오른쪽 몸통 → 밑단
+        p.addLine(to: CGPoint(x: 0.94 * w, y: h))
+        p.addLine(to: CGPoint(x: 0.06 * w, y: h))
+        // 왼쪽 몸통 위로
+        p.addLine(to: CGPoint(x: 0.18 * w, y: 0.34 * h))
+        // 왼쪽 암홀 (오목한 곡선)
+        p.addQuadCurve(
+            to: CGPoint(x: 0.08 * w, y: 0.06 * h),
+            control: CGPoint(x: -0.04 * w, y: 0.20 * h)
+        )
+        // 왼쪽 어깨 스트랩 → 넥 시작으로 닫기
+        p.addLine(to: CGPoint(x: 0.30 * w, y: 0.02 * h))
+        p.closeSubpath()
+        return p
+    }
+}
+
+// MARK: - 반팔 저지 실루엣 (축구·야구·미식축구 등)
+struct ShortSleeveJerseyShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width
+        let h = rect.height
+        var p = Path()
+
+        // V넥 왼쪽 시작
+        p.move(to: CGPoint(x: 0.34 * w, y: 0))
+        // V넥 곡선
+        p.addQuadCurve(
+            to: CGPoint(x: 0.66 * w, y: 0),
+            control: CGPoint(x: 0.50 * w, y: 0.17 * h)
+        )
+        // 오른쪽 어깨 → 소매 끝
+        p.addLine(to: CGPoint(x: 1.00 * w, y: 0.21 * h))
+        // 오른쪽 소매 하단
+        p.addLine(to: CGPoint(x: 0.80 * w, y: 0.37 * h))
+        // 오른쪽 몸통 → 밑단
+        p.addLine(to: CGPoint(x: 0.92 * w, y: h))
+        p.addLine(to: CGPoint(x: 0.08 * w, y: h))
+        // 왼쪽 몸통 위로
+        p.addLine(to: CGPoint(x: 0.20 * w, y: 0.37 * h))
+        // 왼쪽 소매 하단
+        p.addLine(to: CGPoint(x: 0.00 * w, y: 0.21 * h))
+        // 왼쪽 어깨 → 넥 시작으로 닫기
+        p.addLine(to: CGPoint(x: 0.34 * w, y: 0))
+        p.closeSubpath()
+        return p
     }
 }
 
@@ -538,7 +587,7 @@ extension View {
 
 // MARK: - 시즌 리포트 공유
 extension FanStatsView {
-    private var seasonReportButton: some View {
+    private func seasonReportButton(_ r: FanStatsResult) -> some View {
         Button {
             showingSharePreviewSheet = true
         } label: {
@@ -564,212 +613,403 @@ extension FanStatsView {
     
     @MainActor
     private func generateSeasonReport(style: ShareStyle) -> UIImage? {
-        let topOpp = opponentRecords.first
-        
+        guard let r = statsResult else { return nil }
+        let topOpp = r.opponentRecords.first
+        let unlockedEmojis = Self.milestoneDefinitions
+            .filter { r.milestoneUnlocks[$0.id] ?? false }
+            .map(\.emoji)
+            .joined(separator: " ")
+
         let content = SeasonReportContent(
-            teamName: folder.displayName,
-            sportType: folder.sportType,
-            winRate: winRate,
-            wins: wins,
-            losses: losses,
-            draws: draws,
-            totalGames: totalCompleted,
-            luckyEmoji: luckyInfo.emoji,
-            luckyTitle: luckyInfo.title,
-            maxStreak: maxWinStreak,
-            topOpponentName: topOpp?.name,
-            topOpponentRecord: topOpp.map { "\($0.wins)승 \($0.losses)패 \($0.draws)무" },
-            unlockedEmojis: unlockedMilestones.map(\.emoji).joined(separator: " "),
-            style: style
+            teamName:          folder.displayName,
+            sportType:         folder.sportType,
+            winRate:           r.winRate,
+            wins:              r.wins,
+            losses:            r.losses,
+            draws:             r.draws,
+            totalGames:        r.totalCompleted,
+            maxStreak:         r.maxWinStreak,
+            topOpponentName:   topOpp?.name,
+            topOpponentRecord: topOpp.map {
+                String(format: String(localized: "sports.stats.record.winLossDraw", defaultValue: "%lld승 %lld패 %lld무"),
+                       locale: .autoupdatingCurrent,
+                       $0.wins, $0.losses, $0.draws)
+            },
+            unlockedEmojis:    unlockedEmojis,
+            style:             style,
+            fanArchetype:      r.fanArchetype,
+            fanRankPercentile: r.fanRankPercentile,
+            seasonHighlight:   r.seasonHighlight
         )
-        
+
+        let canvasWidth: CGFloat  = 390
+        let canvasHeight: CGFloat = canvasWidth * 16 / 9
         let renderer = ImageRenderer(
-            content: content.frame(width: 390)
+            content: content.frame(width: canvasWidth, height: canvasHeight)
         )
         renderer.scale = 3
         return renderer.uiImage
     }
 }
 
-// MARK: - 시즌 리포트 이미지 뷰 (라이트/다크 지원)
+// MARK: - 시즌 리포트 이미지 뷰 (프리미엄 글래스모피즘)
 private struct SeasonReportContent: View {
-    let teamName: String
-    let sportType: SportType
-    let winRate: Double
-    let wins: Int
-    let losses: Int
-    let draws: Int
-    let totalGames: Int
-    let luckyEmoji: String
-    let luckyTitle: String
-    let maxStreak: Int
-    let topOpponentName: String?
+    let teamName:          String
+    let sportType:         SportType
+    let winRate:           Double
+    let wins:              Int
+    let losses:            Int
+    let draws:             Int
+    let totalGames:        Int
+    let maxStreak:         Int
+    let topOpponentName:   String?
     let topOpponentRecord: String?
-    let unlockedEmojis: String
-    let style: ShareStyle
-    
-    // 스타일별 색상
-    private var bgGradient: LinearGradient {
-        style == .dark
-            ? LinearGradient(
-                colors: [
-                    Color(red: 0.06, green: 0.06, blue: 0.14),
-                    Color(red: 0.12, green: 0.06, blue: 0.22),
-                    Color(red: 0.08, green: 0.08, blue: 0.18)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            : LinearGradient(
-                colors: [
-                    Color(red: 0.96, green: 0.96, blue: 0.97),
-                    Color(red: 0.98, green: 0.97, blue: 1.0),
-                    Color(red: 0.95, green: 0.95, blue: 0.97)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-    }
-    private var textMain: Color {
-        style == .dark ? .white : Color(red: 0.1, green: 0.1, blue: 0.1)
-    }
-    private var textSub: Color {
-        style == .dark ? .white.opacity(0.5) : Color(red: 0.5, green: 0.5, blue: 0.5)
-    }
-    private var textDim: Color {
-        style == .dark ? .white.opacity(0.4) : Color(red: 0.7, green: 0.7, blue: 0.7)
-    }
-    private var dividerColor: Color {
-        style == .dark ? .white.opacity(0.08) : Color(red: 0.85, green: 0.85, blue: 0.87)
-    }
-    private var luckyColor: Color {
-        style == .dark ? .yellow : Color(red: 0.85, green: 0.55, blue: 0.0)
-    }
-    private var brandColor: Color {
-        style == .dark ? .white.opacity(0.2) : Color(red: 0.8, green: 0.8, blue: 0.82)
-    }
-    
+    let unlockedEmojis:    String
+    let style:             ShareStyle
+    let fanArchetype:      FanArchetype
+    let fanRankPercentile: Int
+    let seasonHighlight:   SeasonHighlight?
+
+    private var isDark: Bool { style == .dark }
+
+    // MARK: 색상
+
+    private var textMain:    Color { isDark ? .white : Color(red: 0.08, green: 0.08, blue: 0.12) }
+    private var textSub:     Color { isDark ? .white.opacity(0.55) : Color(red: 0.40, green: 0.40, blue: 0.45) }
+    private var textDim:     Color { isDark ? .white.opacity(0.35) : Color(red: 0.60, green: 0.60, blue: 0.65) }
+    private var cardBg:      Color { isDark ? .white.opacity(0.09) : .white.opacity(0.58) }
+    private var cardBorder:  Color { isDark ? .white.opacity(0.16) : .white.opacity(0.75) }
+    private var accentGold:  Color { isDark ? Color(red: 1.0, green: 0.82, blue: 0.30) : Color(red: 0.85, green: 0.55, blue: 0.0) }
+    private var barcodeInk:  Color { isDark ? .white.opacity(0.65) : Color(red: 0.12, green: 0.12, blue: 0.18).opacity(0.70) }
+
+    // MARK: - Body
+    // 캔버스: 390 × 693pt (9:16). 수직 패딩 40pt × 2 = 80pt 제외하면
+    // 콘텐츠 + 섹션 간 spacing 모두 합쳐 613pt 이하여야 잘리지 않습니다.
+
     var body: some View {
-        VStack(spacing: 28) {
-            // 헤더
+        ZStack {
+            meshBackground
+
             VStack(spacing: 8) {
-                Text("나의 시즌 리포트")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(textSub)
-                    .tracking(2)
-                
-                HStack(spacing: 8) {
-                    Image(systemName: sportType.iconName)
-                    Text(teamName)
-                }
-                .font(.title.bold())
-                .foregroundStyle(textMain)
+                headerSection
+                archetypeCard
+                winRateCard
+                streakOpponentRow
+                if let h = seasonHighlight { highlightCard(h) }
+                if !unlockedEmojis.isEmpty { badgesSection }
+                Spacer(minLength: 0)
+                barcodeSection
             }
-            
-            // 승률
-            VStack(spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text("\(Int(winRate))")
-                        .font(.system(size: 80, weight: .heavy, design: .rounded))
-                        .foregroundStyle(textMain)
-                    
-                    Text("%")
-                        .font(.system(size: 36, weight: .heavy, design: .rounded))
-                        .foregroundStyle(textSub)
-                }
-                
-                Text("승률")
-                    .font(.subheadline)
-                    .foregroundStyle(textSub)
-            }
-            
-            // 럭키 지수
-            Text("\(luckyEmoji) \(luckyTitle)")
-                .font(.title3.bold())
-                .foregroundStyle(luckyColor)
-            
-            // 구분선
-            Rectangle()
-                .fill(dividerColor)
-                .frame(height: 1)
-                .padding(.horizontal, 40)
-            
-            // 전적
-            HStack(spacing: 20) {
-                reportStat(value: "\(totalGames)", label: "경기")
-                reportStat(value: "\(wins)", label: "승")
-                reportStat(value: "\(losses)", label: "패")
-                reportStat(value: "\(draws)", label: "무")
-            }
-            
-            // 최다 연승
-            if maxStreak >= 2 {
-                HStack(spacing: 6) {
-                    Image(systemName: "flame.fill")
-                        .foregroundStyle(.orange)
-                    Text("최다 연승")
-                        .foregroundStyle(textSub)
-                    Text("\(maxStreak)연승")
-                        .fontWeight(.bold)
-                        .foregroundStyle(.orange)
-                }
-                .font(.subheadline)
-            }
-            
-            // 최다 대결 상대
-            if let opponent = topOpponentName, let record = topOpponentRecord {
-                VStack(spacing: 6) {
-                    Text("최다 대결")
-                        .font(.caption)
-                        .foregroundStyle(textDim)
-                    Text("vs \(opponent)")
-                        .font(.headline)
-                        .foregroundStyle(textMain)
-                    Text(record)
-                        .font(.caption)
-                        .foregroundStyle(textSub)
-                }
-            }
-            
-            // 구분선
-            Rectangle()
-                .fill(dividerColor)
-                .frame(height: 1)
-                .padding(.horizontal, 40)
-            
-            // 달성 뱃지
-            if !unlockedEmojis.isEmpty {
-                VStack(spacing: 10) {
-                    Text("달성 뱃지")
-                        .font(.caption)
-                        .foregroundStyle(textDim)
-                    Text(unlockedEmojis)
-                        .font(.title2)
-                }
-            }
-            
-            // 브랜딩
-            Text("Fanfolio")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(brandColor)
-                .tracking(3)
-                .padding(.top, 8)
+            .padding(.vertical, 40)
+            .padding(.horizontal, 24)
         }
-        .padding(.vertical, 40)
-        .padding(.horizontal, 32)
-        .frame(maxWidth: .infinity)
-        .background(bgGradient)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    
-    private func reportStat(value: String, label: String) -> some View {
-        VStack(spacing: 4) {
+
+    // MARK: - 배경 (메시 그라데이션)
+
+    private var meshBackground: some View {
+        ZStack {
+            (isDark
+                ? Color(red: 0.05, green: 0.04, blue: 0.13)
+                : Color(red: 0.96, green: 0.95, blue: 1.00))
+
+            Circle()
+                .fill(isDark
+                    ? Color(red: 0.45, green: 0.05, blue: 0.85).opacity(0.55)
+                    : Color(red: 1.00, green: 0.72, blue: 0.82).opacity(0.65))
+                .frame(width: 320, height: 320)
+                .blur(radius: 60)
+                .offset(x: -100, y: -220)
+
+            Circle()
+                .fill(isDark
+                    ? Color(red: 0.05, green: 0.25, blue: 0.90).opacity(0.45)
+                    : Color(red: 0.65, green: 0.88, blue: 1.00).opacity(0.60))
+                .frame(width: 280, height: 280)
+                .blur(radius: 55)
+                .offset(x: 120, y: 250)
+
+            Circle()
+                .fill(isDark
+                    ? Color(red: 0.15, green: 0.05, blue: 0.55).opacity(0.30)
+                    : Color(red: 0.88, green: 0.82, blue: 1.00).opacity(0.50))
+                .frame(width: 200, height: 200)
+                .blur(radius: 45)
+                .offset(x: 40, y: 0)
+        }
+    }
+
+    // MARK: - 헤더
+
+    private var headerSection: some View {
+        VStack(spacing: 7) {
+            Text("나의 시즌 리포트")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(textDim)
+                .tracking(3)
+
+            HStack(spacing: 7) {
+                Image(systemName: sportType.iconName)
+                    .font(.title3)
+                Text(teamName)
+                    .font(.system(size: 22, weight: .heavy))
+            }
+            .foregroundStyle(textMain)
+        }
+    }
+
+    // MARK: - 팬 유형 + 퍼센타일 카드
+
+    private var archetypeCard: some View {
+        glassCard {
+            HStack(spacing: 0) {
+                VStack(spacing: 4) {
+                    Text(fanArchetype.emoji)
+                        .font(.system(size: 28))
+                    Text(fanArchetype.title)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(textMain)
+                    Text(fanArchetype.subtitle)
+                        .font(.system(size: 9))
+                        .foregroundStyle(textSub)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+
+                Rectangle()
+                    .fill(cardBorder)
+                    .frame(width: 0.5, height: 52)
+
+                VStack(spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text("상위")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(textSub)
+                        Text("\(100 - fanRankPercentile)%")
+                            .font(.system(size: 24, weight: .heavy, design: .rounded))
+                            .foregroundStyle(accentGold)
+                    }
+                    Text("팬 퍼센타일")
+                        .font(.system(size: 9))
+                        .foregroundStyle(textDim)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .padding(.vertical, 11)
+            .padding(.horizontal, 12)
+        }
+    }
+
+    // MARK: - 승률 카드
+
+    private var winRateCard: some View {
+        glassCard {
+            VStack(spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text("\(Int(winRate))")
+                        .font(.system(size: 52, weight: .heavy, design: .rounded))
+                        .foregroundStyle(textMain)
+                    Text("%")
+                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .foregroundStyle(textSub)
+                }
+
+                Text("승률")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(textDim)
+                    .tracking(2)
+
+                GeometryReader { geo in
+                    let total = CGFloat(max(totalGames, 1))
+                    HStack(spacing: 2) {
+                        if wins > 0 {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.green.opacity(0.85))
+                                .frame(width: max(geo.size.width * CGFloat(wins) / total, 6))
+                        }
+                        if losses > 0 {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.red.opacity(0.75))
+                                .frame(width: max(geo.size.width * CGFloat(losses) / total, 6))
+                        }
+                        if draws > 0 {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.orange.opacity(0.75))
+                        }
+                    }
+                }
+                .frame(height: 5)
+
+                HStack(spacing: 0) {
+                    statCell(value: "\(wins)",       label: "승",  color: .green)
+                    statCell(value: "\(losses)",     label: "패",  color: .red)
+                    statCell(value: "\(draws)",      label: "무",  color: .orange)
+                    statCell(value: "\(totalGames)", label: "경기", color: textSub)
+                }
+            }
+            .padding(12)
+        }
+    }
+
+    private func statCell(value: String, label: LocalizedStringKey, color: Color) -> some View {
+        VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 24, weight: .heavy, design: .rounded))
-                .foregroundStyle(textMain)
+                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                .foregroundStyle(color)
             Text(label)
-                .font(.caption)
+                .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(textDim)
         }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - 연승 + 최다 대결 행
+
+    private var streakOpponentRow: some View {
+        HStack(spacing: 8) {
+            glassCard {
+                VStack(spacing: 5) {
+                    Text(maxStreak >= 2 ? "🔥" : "—")
+                        .font(.system(size: 22))
+                    if maxStreak >= 2 {
+                        Text("\(maxStreak)연승")
+                            .font(.system(size: 15, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.orange)
+                    } else {
+                        Text("기록 없음")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(textDim)
+                    }
+                    Text("최다 연승")
+                        .font(.system(size: 9))
+                        .foregroundStyle(textDim)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+            }
+
+            if let opp = topOpponentName {
+                glassCard {
+                    VStack(spacing: 5) {
+                        Text("⚔️")
+                            .font(.system(size: 22))
+                        Text("vs \(opp)")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(textMain)
+                            .lineLimit(1)
+                        if let rec = topOpponentRecord {
+                            Text(rec)
+                                .font(.system(size: 9))
+                                .foregroundStyle(textDim)
+                        }
+                        Text("최다 대결")
+                            .font(.system(size: 9))
+                            .foregroundStyle(textDim)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                }
+            }
+        }
+    }
+
+    // MARK: - 시즌 하이라이트 카드
+
+    private func highlightCard(_ h: SeasonHighlight) -> some View {
+        glassCard {
+            HStack(spacing: 10) {
+                Text(h.emoji)
+                    .font(.system(size: 26))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("시즌 하이라이트")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(textDim)
+                        .tracking(1)
+                    Text(h.title)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(textMain)
+                    Text(h.subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(textSub)
+                }
+                Spacer()
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+        }
+    }
+
+    // MARK: - 달성 뱃지
+
+    private var badgesSection: some View {
+        VStack(spacing: 6) {
+            Text("달성 뱃지")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(textDim)
+                .tracking(1)
+            Text(unlockedEmojis)
+                .font(.system(size: 17))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 14)
+        .background(cardBg)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(cardBorder, lineWidth: 0.5)
+        )
+    }
+
+    // MARK: - 바코드 + 워터마크
+
+    private var barcodeSection: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 1.5) {
+                ForEach(Array(barcodeWidths(seed: teamName).enumerated()), id: \.offset) { _, w in
+                    Rectangle()
+                        .fill(barcodeInk)
+                        .frame(width: w, height: 36)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .clipped()
+
+            Text(String(format: String(localized: "sports.stats.share.seasonWatermark", defaultValue: "FANFOLIO  SEASON %lld"),
+                        locale: .autoupdatingCurrent,
+                        Calendar.current.component(.year, from: Date())))
+                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                .foregroundStyle(textDim)
+                .tracking(3)
+        }
+        .padding(.top, 4)
+    }
+
+    /// LCG 기반 결정론적 바코드 너비 생성 (시드: 팀 이름).
+    private func barcodeWidths(seed: String, count: Int = 75) -> [CGFloat] {
+        var widths: [CGFloat] = []
+        var h = UInt(bitPattern: seed.hashValue)
+        for _ in 0..<count {
+            h = h &* 1664525 &+ 1013904223
+            widths.append(CGFloat(h % 4 + 1))
+        }
+        return widths
+    }
+
+    // MARK: - 글래스 카드 빌더
+
+    private func glassCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .background(cardBg)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(cardBorder, lineWidth: 0.5)
+            )
     }
 }
 
@@ -785,8 +1025,8 @@ private struct MonthlyRecord: Identifiable {
 private struct FanMilestone: Identifiable {
     let id: String
     let emoji: String
-    let title: String
-    let desc: String
+    let title: LocalizedStringKey
+    let desc: LocalizedStringKey
     let isUnlocked: Bool
 }
 

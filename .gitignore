@@ -43,5 +43,13 @@ Secrets.xcconfig
 *.env
 .env.local
 
+# ===== Xcode 배포 / 산출물 (용량·로컬 전용) =====
+*.xcarchive
+*.ipa
+*.dSYM.zip
+
+# ===== 로컬라이제이션 스크립트 백업 =====
+Localizable.xcstrings.bak*
+
 # ===== 기타 =====
 *.log

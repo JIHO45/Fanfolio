@@ -259,6 +259,140 @@ struct FanStatsCalculatorTests {
     }
 }
 
+// MARK: - 팬 유형·퍼센타일·하이라이트 테스트
+
+@Suite("FanStatsCalculator — 팬 유형 · 퍼센타일 · 하이라이트")
+struct FanArchetypeTests {
+
+    private func makeMatch(
+        result:        MatchResult,
+        myScore:       Int = 1,
+        opponentScore: Int = 0,
+        opponent:      String = "상대팀",
+        isHome:        Bool = true,
+        status:        MatchStatus = .completed,
+        daysAgo:       Int = 0
+    ) -> SportsModel {
+        SportsModel(
+            title:         "테스트 경기",
+            opponentTeam:  opponent,
+            myTeamScore:   myScore,
+            opponentScore: opponentScore,
+            matchResult:   result,
+            matchStatus:   status,
+            isHomeGame:    isHome,
+            date: Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date())
+        )
+    }
+
+    // MARK: fanArchetype
+
+    @Test("경기 기록이 없으면 라이징팬")
+    func archetypeEmpty() {
+        #expect(FanStatsCalculator(matches: []).fanArchetype.title == "라이징팬")
+    }
+
+    @Test("30경기 이상이면 열혈팬 (원정/홈 조건 무관)")
+    func archetypeSuperFan() {
+        let matches = (0..<30).map { makeMatch(result: .win, daysAgo: $0) }
+        #expect(FanStatsCalculator(matches: matches).fanArchetype.title == "열혈팬")
+    }
+
+    @Test("원정 비율 40% 이상·원정 3경기 이상이면 원정전사")
+    func archetypeAwaySoldier() {
+        // 30경기 미만, 홈 4 + 원정 6 = 원정 비율 60%
+        let away = (0..<6).map { makeMatch(result: .loss, isHome: false, daysAgo: $0) }
+        let home = (0..<4).map { makeMatch(result: .win,  isHome: true,  daysAgo: $0 + 6) }
+        #expect(FanStatsCalculator(matches: away + home).fanArchetype.title == "원정전사")
+    }
+
+    @Test("승률 65% 이상(30경기 미만, 원정 조건 불충족)이면 행운의 팬")
+    func archetypeLucky() {
+        // 7승 3패 = 70%, 홈 경기만
+        let wins   = (0..<7).map { makeMatch(result: .win,  isHome: true, daysAgo: $0) }
+        let losses = (0..<3).map { makeMatch(result: .loss, isHome: true, daysAgo: $0 + 7) }
+        #expect(FanStatsCalculator(matches: wins + losses).fanArchetype.title == "행운의 팬")
+    }
+
+    @Test("승률 40% 미만이고 10경기 이상이면 불굴의 팬")
+    func archetypeIndomitable() {
+        // 3승 7패 = 30%
+        let wins   = (0..<3).map  { makeMatch(result: .win,  daysAgo: $0) }
+        let losses = (0..<7).map  { makeMatch(result: .loss, daysAgo: $0 + 3) }
+        #expect(FanStatsCalculator(matches: wins + losses).fanArchetype.title == "불굴의 팬")
+    }
+
+    // MARK: fanRankPercentile
+
+    @Test("경기 기록이 없으면 퍼센타일 1")
+    func percentileEmpty() {
+        #expect(FanStatsCalculator(matches: []).fanRankPercentile == 1)
+    }
+
+    @Test("퍼센타일은 항상 1~99 범위")
+    func percentileRange() {
+        let many = (0..<50).map { makeMatch(result: .win, daysAgo: $0) }
+        let few  = (0..<2).map  { makeMatch(result: .loss, daysAgo: $0) }
+
+        let pHigh = FanStatsCalculator(matches: many).fanRankPercentile
+        let pLow  = FanStatsCalculator(matches: few).fanRankPercentile
+
+        #expect(pHigh >= 1 && pHigh <= 99)
+        #expect(pLow  >= 1 && pLow  <= 99)
+    }
+
+    @Test("경기가 많고 승률이 높을수록 퍼센타일이 높다")
+    func percentileOrderIsCorrect() {
+        let strong = (0..<30).map { makeMatch(result: .win,  daysAgo: $0) }
+        let weak   = (0..<5).map  { makeMatch(result: .loss, daysAgo: $0) }
+
+        let pStrong = FanStatsCalculator(matches: strong).fanRankPercentile
+        let pWeak   = FanStatsCalculator(matches: weak).fanRankPercentile
+        #expect(pStrong > pWeak)
+    }
+
+    // MARK: seasonHighlight
+
+    @Test("경기 기록이 없으면 nil")
+    func highlightEmpty() {
+        #expect(FanStatsCalculator(matches: []).seasonHighlight == nil)
+    }
+
+    @Test("점수 차 3점 이상 승리가 있으면 '최고의 승리'")
+    func highlightBigWin() throws {
+        let bigWin = SportsModel(
+            title: "대승 경기", opponentTeam: "두산",
+            myTeamScore: 5, opponentScore: 1,
+            matchResult: .win, matchStatus: .completed
+        )
+        let h = try #require(FanStatsCalculator(matches: [bigWin]).seasonHighlight)
+        #expect(h.title == "최고의 승리")
+        #expect(h.subtitle.contains("두산"))
+    }
+
+    @Test("점수 차 2 이하면 완봉승을 우선 선택")
+    func highlightShutout() throws {
+        let shutout = SportsModel(
+            title: "완봉 경기", opponentTeam: "SSG",
+            myTeamScore: 2, opponentScore: 0,
+            matchResult: .win, matchStatus: .completed
+        )
+        let h = try #require(FanStatsCalculator(matches: [shutout]).seasonHighlight)
+        #expect(h.title == "완봉승")
+    }
+
+    @Test("승리가 없고 득점이 있으면 '최다 득점'")
+    func highlightHighScore() throws {
+        let draw = SportsModel(
+            title: "무승부 경기", opponentTeam: "한화",
+            myTeamScore: 4, opponentScore: 4,
+            matchResult: .draw, matchStatus: .completed
+        )
+        let h = try #require(FanStatsCalculator(matches: [draw]).seasonHighlight)
+        #expect(h.title == "최다 득점")
+    }
+}
+
 // MARK: - OpponentRecord 단위 테스트
 
 /// OpponentRecord 구조체 자체의 계산 프로퍼티를 독립적으로 검증합니다.

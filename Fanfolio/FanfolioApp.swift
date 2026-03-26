@@ -19,8 +19,7 @@ struct FanfolioApp: App {
         let schema = Schema([
             SportsFanFolder.self,
             SportsModel.self,
-            F1RaceModel.self,
-            GolfRoundModel.self,
+            SavedTicket.self,
             CultureFanFolder.self,
             CultureModel.self
         ])

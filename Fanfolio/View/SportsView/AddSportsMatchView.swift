@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import Kingfisher
 
 struct AddSportsMatchView: View {
     @Environment(\.modelContext) private var modelContext
@@ -18,6 +19,7 @@ struct AddSportsMatchView: View {
     
     // MARK: - Form State
     @State private var matchStatus: MatchStatus = .upcoming
+    @State private var eventTitle = ""  // 기타 + 상대팀 없을 때 직접 입력 제목
     @State private var team1 = ""  // 응원팀 없을 때 첫 번째 팀
     @State private var opponentTeam = ""  // 응원팀 있을 때 상대팀, 없을 때 두 번째 팀
     @State private var myTeamScore = 0
@@ -25,6 +27,7 @@ struct AddSportsMatchView: View {
     @State private var matchResult: MatchResult = .draw
     @State private var isHomeGame = true
     @State private var date = Date()
+    @State private var includeTime = false
     @State private var location = ""
     @State private var memo = ""
     
@@ -56,14 +59,28 @@ struct AddSportsMatchView: View {
     }
     
     private var hasFavoriteTeam: Bool { folder.teamLogoUrl != nil }
+
+    /// 기타 카테고리이고 상대팀이 없는 모드 여부
+    private var isNoOpponentMode: Bool {
+        folder.sportType == .other && !folder.matchHasOpponent
+    }
+
+    private var isSaveDisabled: Bool {
+        if isNoOpponentMode { return eventTitle.trimmingCharacters(in: .whitespaces).isEmpty }
+        return hasFavoriteTeam ? opponentTeam.isEmpty : (team1.isEmpty || opponentTeam.isEmpty)
+    }
     
     var body: some View {
         NavigationStack {
             Form {
                 statusSection
-                teamInfoSection
-                if matchStatus == .completed {
-                    scoreSection
+                if isNoOpponentMode {
+                    noOpponentTitleSection
+                } else {
+                    teamInfoSection
+                    if matchStatus == .completed {
+                        scoreSection
+                    }
                 }
                 dateLocationSection
                 ticketPhotoSection
@@ -79,7 +96,7 @@ struct AddSportsMatchView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("저장") { saveMatch() }
                         .fontWeight(.semibold)
-                        .disabled(hasFavoriteTeam ? opponentTeam.isEmpty : (team1.isEmpty || opponentTeam.isEmpty))
+                        .disabled(isSaveDisabled)
                 }
             }
             .onChange(of: selectedPhoto) { _, newValue in
@@ -144,12 +161,22 @@ struct ScorePickerSheet: View {
 
 // MARK: - Sections
 extension AddSportsMatchView {
+
+    private var noOpponentTitleSection: some View {
+        Section {
+            TextField("예: 테니스 직관, 마라톤 완주", text: $eventTitle)
+        } header: {
+            Text("제목")
+        } footer: {
+            Text("기록할 경기나 이벤트 이름을 입력하세요.")
+        }
+    }
     
     private var statusSection: some View {
         Section {
             Picker("경기 상태", selection: $matchStatus) {
                 ForEach(MatchStatus.allCases) { status in
-                    Label(status.rawValue, systemImage: status.iconName)
+                    Label(status.displayName, systemImage: status.iconName)
                         .tag(status)
                 }
             }
@@ -230,20 +257,16 @@ extension AddSportsMatchView {
                                     )
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                                     
-                                    AsyncImage(url: URL(string: team.logo_url)) { phase in
-                                        switch phase {
-                                        case .success(let image):
-                                            image.resizable().scaledToFit().padding(6)
-                                        case .failure:
+                                    KFImage.url(URL(string: team.logo_url))
+                                        .placeholder { ProgressView().tint(.white) }
+                                        .onFailureView {
                                             Image(systemName: "photo")
                                                 .font(.caption)
                                                 .foregroundStyle(.white.opacity(0.8))
-                                        case .empty:
-                                            ProgressView().tint(.white)
-                                        @unknown default:
-                                            EmptyView()
                                         }
-                                    }
+                                        .resizable()
+                                        .scaledToFit()
+                                        .padding(6)
                                 }
                                 .frame(width: 44, height: 44)
                                 
@@ -311,7 +334,7 @@ extension AddSportsMatchView {
             
             Picker("결과", selection: $matchResult) {
                 ForEach(MatchResult.allCases) { result in
-                    Text(result.rawValue).tag(result)
+                    Text(result.displayName).tag(result)
                 }
             }
             .pickerStyle(.segmented)
@@ -321,50 +344,22 @@ extension AddSportsMatchView {
     private var dateLocationSection: some View {
         Section("날짜 · 장소") {
             DatePicker("날짜", selection: $date, displayedComponents: .date)
+            Toggle(isOn: $includeTime.animation()) {
+                Label("시간 설정", systemImage: "clock")
+            }
+            if includeTime {
+                DatePicker("시간", selection: $date, displayedComponents: .hourAndMinute)
+            }
             TextField("장소 (선택)", text: $location)
         }
     }
     
     private var ticketPhotoSection: some View {
-        Section {
-            PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                if let data = qrCodeImageData,
-                   let uiImage = UIImage(data: data) {
-                    VStack(spacing: 8) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: 200)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                        
-                        if qrDetected {
-                            Label("QR코드 자동 감지됨", systemImage: "checkmark.circle.fill")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(.green)
-                        }
-                        
-                        Text("탭하여 변경")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Label("티켓 · QR코드 사진 추가", systemImage: "qrcode.viewfinder")
-                        .foregroundStyle(.blue)
-                }
-            }
-            
-            if qrCodeImageData != nil {
-                Button("사진 삭제", role: .destructive) {
-                    qrCodeImageData = nil
-                    selectedPhoto = nil
-                    qrDetected = false
-                }
-            }
-        } header: {
-            Text("티켓 · QR코드")
-        } footer: {
-            Text("사진에 QR코드가 포함되어 있으면 자동으로 감지하여 QR 영역만 추출합니다.")
-        }
+        TicketPhotoSectionView(
+            selectedPhoto: $selectedPhoto,
+            qrCodeImageData: $qrCodeImageData,
+            qrDetected: $qrDetected
+        )
     }
     
     private var gamePhotosSection: some View {
@@ -462,28 +457,49 @@ extension AddSportsMatchView {
     }
     
     private func saveMatch() {
-        let (t1, t2) = hasFavoriteTeam
-        ? (folder.displayName, opponentTeam)
-        : (team1, opponentTeam)
+        let title: String
+        let savedOpponent: String
+        let savedTeam1: String?
+
+        if isNoOpponentMode {
+            title = eventTitle.trimmingCharacters(in: .whitespaces)
+            savedOpponent = ""
+            savedTeam1 = nil
+        } else {
+            let (t1, t2) = hasFavoriteTeam
+                ? (folder.displayName, opponentTeam)
+                : (team1, opponentTeam)
+            title = "\(t1) vs \(t2)"
+            savedOpponent = opponentTeam
+            savedTeam1 = hasFavoriteTeam ? nil : team1
+        }
+
+        var photoPaths: [String]?
+        if !photosData.isEmpty {
+            let batchID = UUID()
+            photoPaths = (0..<photosData.count).compactMap { i -> String? in
+                try? ArchivePhotoStore.savePhoto(photosData[i], itemID: batchID, index: i, folder: .match)
+            }
+        }
+        
         let match = SportsModel(
-            title: "\(t1) vs \(t2)",
-            opponentTeam: opponentTeam,
-            myTeamScore: myTeamScore,
-            opponentScore: opponentScore,
-            matchResult: matchResult,
+            title: title,
+            opponentTeam: savedOpponent,
+            myTeamScore: isNoOpponentMode ? 0 : myTeamScore,
+            opponentScore: isNoOpponentMode ? 0 : opponentScore,
+            matchResult: isNoOpponentMode ? .draw : matchResult,
             matchStatus: matchStatus,
-            isHomeGame: isHomeGame,
-            date: date,
+            isHomeGame: isNoOpponentMode ? false : isHomeGame,
+            date: includeTime ? date : Calendar.current.startOfDay(for: date),
             location: location.isEmpty ? nil : location,
             memo: memo.isEmpty ? nil : memo,
             qrCodeImageData: qrCodeImageData,
-            photosData: photosData.isEmpty ? nil : photosData,
+            photosData: nil,
+            photoPaths: photoPaths,
             orderIndex: nextOrderIndex
         )
         match.folder = folder
-        if !hasFavoriteTeam {
-            match.team1 = team1
-        }
+        match.team1 = savedTeam1
         modelContext.insert(match)
         dismiss()
     }

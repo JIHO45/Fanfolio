@@ -13,7 +13,6 @@ extension Logger {
     private static let subsystem = "com.fanfolio"
 
     static let api     = Logger(subsystem: subsystem, category: "API")
-    static let cache   = Logger(subsystem: subsystem, category: "Cache")
     static let network = Logger(subsystem: subsystem, category: "Network")
     static let auth    = Logger(subsystem: subsystem, category: "Auth")
     static let data    = Logger(subsystem: subsystem, category: "Data")

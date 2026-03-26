@@ -6,13 +6,14 @@
 //
 
 import SwiftUI
+import Kingfisher
 
 // MARK: - 스코어보드 메인 뷰
 
 struct LiveScoreboardView: View {
     let fixture: LiveFixture
     let sportType: SportType
-    
+
     var body: some View {
         VStack(spacing: 0) {
             headerBar
@@ -22,11 +23,11 @@ struct LiveScoreboardView: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
                     fixture.isLive
                         ? Color.red.opacity(0.4)
@@ -107,10 +108,8 @@ struct LiveScoreboardView: View {
     
     private func teamScoreLine(team: LiveTeamInfo, score: Int?, isHome: Bool) -> some View {
         HStack(spacing: 10) {
-            // 팀 로고
             teamLogo(url: team.logoURL)
-            
-            // 팀 이름
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(team.name)
                     .font(.subheadline.weight(.semibold))
@@ -121,25 +120,23 @@ struct LiveScoreboardView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            
+
             Spacer()
-            
-            // 쿼터별 점수 (피리어드 있을 때)
+
             if !fixture.periods.isEmpty {
                 HStack(spacing: 0) {
                     ForEach(fixture.periods) { period in
                         let val = isHome ? period.home : period.away
                         Text(val.map { "\($0)" } ?? "-")
-                            .font(.caption.monospacedDigit())
+                            .font(.caption)
+                            .monospacedDigit()
                             .foregroundStyle(.secondary)
                             .frame(width: periodColumnWidth)
                     }
                 }
             }
-            
-            // 합계 점수
-            let scoreVal = score
-            Text(scoreVal.map { "\($0)" } ?? "-")
+
+            Text(score.map { "\($0)" } ?? "-")
                 .font(.system(size: 22, weight: .heavy, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(scoreHighlight(isHome: isHome))
@@ -166,7 +163,6 @@ struct LiveScoreboardView: View {
                 }
             }
             
-            // "합계" 헤더
             Text("합계")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.tertiary)
@@ -203,24 +199,27 @@ struct LiveScoreboardView: View {
     
     private func timeString(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "M/d HH:mm"
-        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.locale = Locale.autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("MdHHmm")
         return formatter.string(from: date)
     }
     
     private func teamLogo(url: String?) -> some View {
         Group {
             if let urlStr = url, let url = URL(string: urlStr) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFit()
-                    default:
+                KFImage.url(url)
+                    .placeholder {
                         Image(systemName: "sportscourt")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                }
+                    .onFailureView {
+                        Image(systemName: "sportscourt")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .resizable()
+                    .scaledToFit()
             } else {
                 Image(systemName: "sportscourt")
                     .font(.caption)
@@ -235,7 +234,7 @@ struct LiveScoreboardView: View {
 
 struct LiveIndicator: View {
     @State private var isAnimating = false
-    
+
     var body: some View {
         Circle()
             .fill(Color.red)
@@ -245,7 +244,9 @@ struct LiveIndicator: View {
                 .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
                 value: isAnimating
             )
-            .onAppear { isAnimating = true }
+            .onAppear {
+                isAnimating = true
+            }
     }
 }
 
@@ -287,7 +288,7 @@ struct UpcomingFixtureCard: View {
                 teamBlock(team: fixture.homeTeam, label: "홈")
                 
                 VStack(spacing: 4) {
-                    Text("VS")
+                    Text(String(localized: "sports.card.vs", defaultValue: "VS"))
                         .font(.title3.bold())
                         .foregroundStyle(.secondary)
                     if let time = fixture.startTime {
@@ -314,15 +315,16 @@ struct UpcomingFixtureCard: View {
     private func teamBlock(team: LiveTeamInfo, label: String) -> some View {
         VStack(spacing: 6) {
             if let url = team.logoURL, let imgURL = URL(string: url) {
-                AsyncImage(url: imgURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFit()
-                    default:
+                KFImage.url(imgURL)
+                    .placeholder {
                         Image(systemName: "sportscourt").foregroundStyle(.secondary)
                     }
-                }
-                .frame(width: 40, height: 40)
+                    .onFailureView {
+                        Image(systemName: "sportscourt").foregroundStyle(.secondary)
+                    }
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
             }
             Text(team.name)
                 .font(.subheadline.bold())
@@ -337,8 +339,8 @@ struct UpcomingFixtureCard: View {
     
     private func dateString(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "M월 d일 HH:mm"
-        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.locale = Locale.autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("MdHHmm")
         return formatter.string(from: date)
     }
 }
@@ -351,7 +353,6 @@ struct LiveScoreboardSection: View {
     
     private var liveFixtures: [LiveFixture] { fixtures.filter { $0.isLive } }
     private var upcomingFixtures: [LiveFixture] { fixtures.filter { $0.isUpcoming } }
-    private var finishedFixtures: [LiveFixture] { fixtures.filter { $0.status.isFinished } }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -366,13 +367,6 @@ struct LiveScoreboardSection: View {
             if !upcomingFixtures.isEmpty {
                 ForEach(upcomingFixtures) { fixture in
                     UpcomingFixtureCard(fixture: fixture, sportType: sportType)
-                }
-            }
-            
-            // 최근 종료 경기
-            if !finishedFixtures.isEmpty {
-                ForEach(finishedFixtures) { fixture in
-                    LiveScoreboardView(fixture: fixture, sportType: sportType)
                 }
             }
         }

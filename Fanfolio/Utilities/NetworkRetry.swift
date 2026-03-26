@@ -43,7 +43,7 @@ func withRetry<T>(
             }
 
             Logger.api.warning(
-                "Attempt \(attempt)/\(maxAttempts) failed: \(error.localizedDescription). Retrying in \(String(format: "%.1f", delay))s..."
+                "Attempt \(attempt)/\(maxAttempts) failed: \(error.localizedDescription). Retrying in \(delay.formatted(.number.precision(.fractionLength(1))))s..."
             )
 
             try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
@@ -51,5 +51,5 @@ func withRetry<T>(
         }
     }
 
-    throw lastError!
+    throw lastError ?? CancellationError()
 }

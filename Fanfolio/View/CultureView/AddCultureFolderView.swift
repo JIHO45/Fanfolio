@@ -60,7 +60,7 @@ struct AddCultureFolderView: View {
                                         )
                                         .foregroundStyle(cultureType == type ? .purple : .secondary)
                                     
-                                    Text(type.rawValue)
+                                    Text(type.displayName)
                                         .font(.caption2)
                                         .foregroundStyle(cultureType == type ? .purple : .secondary)
                                 }

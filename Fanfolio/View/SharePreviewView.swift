@@ -20,8 +20,15 @@ func loadImage(from urlString: String) async -> UIImage? {
 
 // MARK: - 공유 스타일
 enum ShareStyle: String, CaseIterable {
-    case light = "라이트"
-    case dark = "다크"
+    case light = "light"
+    case dark  = "dark"
+    
+    var displayName: String {
+        switch self {
+        case .light: return String(localized: "shareStyle.light", defaultValue: "라이트")
+        case .dark:  return String(localized: "shareStyle.dark",  defaultValue: "다크")
+        }
+    }
 }
 
 // MARK: - 공유 미리보기 뷰
@@ -50,7 +57,7 @@ struct SharePreviewView: View {
                     // ── 스타일 선택 ──
                     Picker("스타일", selection: $selectedStyle) {
                         ForEach(ShareStyle.allCases, id: \.self) { style in
-                            Text(style.rawValue).tag(style)
+                            Text(style.displayName).tag(style)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -112,16 +119,14 @@ struct SharePreviewView: View {
                         .foregroundStyle(.white.opacity(0.7))
                 }
             }
-            .onChange(of: selectedStyle) { _, style in
+            .onChange(of: selectedStyle) { _, _ in
                 showLoadingIndicator = false
                 withAnimation(.easeInOut(duration: 0.2)) {
                     currentImage = nil
                 }
-                Task { @MainActor in
-                    await runGeneration(style: style)
-                }
             }
-            .task {
+            // 스타일이 바뀌면 이전 생성 Task는 취소되고 새 스타일로 다시 생성
+            .task(id: selectedStyle) {
                 await runGeneration(style: selectedStyle)
             }
             .sheet(isPresented: $showingActivityShareSheet) {

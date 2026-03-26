@@ -2,10 +2,9 @@
 //  FavoritePlayersManager.swift
 //  Fanfolio
 //
-//  UserDefaults 기반 선수 즐겨찾기 관리. [String] 형태의 선수 ID 배열을 저장합니다.
-//
-//  핵심 설계: @Observable은 stored property만 변경을 추적합니다.
-//  favoriteIDs를 stored property로 선언하고, 변경 시 UserDefaults에 동기화합니다.
+//  UserDefaults 기반 선수 즐겨찾기 관리.
+//  폴더(folderID)별로 선수 ID 목록을 분리 저장합니다.
+//  저장 형식: [folderID문자열: [선수ID문자열]] (JSON)
 
 import Foundation
 import Observation
@@ -15,50 +14,58 @@ final class FavoritePlayersManager {
 
     static let shared = FavoritePlayersManager()
 
-    private let storageKey = "favoritePlayerIDs"
+    private let storageKey = "favoritePlayerIDsByFolder"
 
-    /// 즐겨찾기된 선수 ID 배열 - stored property이므로 @Observable이 변경을 감지합니다.
-    private(set) var favoriteIDs: [String]
+    /// 폴더별 즐겨찾기 선수 ID 딕셔너리 [folderID: [playerID]]
+    private(set) var favoritesByFolder: [String: [String]]
 
     private init() {
-        if let data = UserDefaults.standard.data(forKey: "favoritePlayerIDs"),
-           let decoded = try? JSONDecoder().decode([String].self, from: data) {
-            self.favoriteIDs = decoded
+        if let data = UserDefaults.standard.data(forKey: "favoritePlayerIDsByFolder"),
+           let decoded = try? JSONDecoder().decode([String: [String]].self, from: data) {
+            self.favoritesByFolder = decoded
         } else {
-            self.favoriteIDs = []
+            // 기존 전역 저장 데이터가 있으면 버리고 빈 상태로 시작
+            self.favoritesByFolder = [:]
         }
     }
 
     // MARK: - 공개 인터페이스
 
-    func isFavorite(_ playerID: String) -> Bool {
-        favoriteIDs.contains(playerID)
+    func favoriteIDs(inFolder folderID: String) -> [String] {
+        favoritesByFolder[folderID] ?? []
     }
 
-    func toggleFavorite(_ playerID: String) {
-        if let index = favoriteIDs.firstIndex(of: playerID) {
-            favoriteIDs.remove(at: index)
+    func favoriteCount(inFolder folderID: String) -> Int {
+        favoritesByFolder[folderID]?.count ?? 0
+    }
+
+    func isFavorite(_ playerID: String, inFolder folderID: String) -> Bool {
+        favoritesByFolder[folderID]?.contains(playerID) ?? false
+    }
+
+    func toggleFavorite(_ playerID: String, inFolder folderID: String) {
+        var ids = favoritesByFolder[folderID] ?? []
+        if let index = ids.firstIndex(of: playerID) {
+            ids.remove(at: index)
         } else {
-            favoriteIDs.append(playerID)
+            ids.append(playerID)
         }
+        favoritesByFolder[folderID] = ids
         persist()
     }
 
-    func addFavorite(_ playerID: String) {
-        guard !isFavorite(playerID) else { return }
-        favoriteIDs.append(playerID)
-        persist()
-    }
-
-    func removeFavorite(_ playerID: String) {
-        favoriteIDs.removeAll { $0 == playerID }
+    /// 폴더 삭제 시 해당 폴더의 즐겨찾기를 모두 제거합니다.
+    /// 폴더를 삭제할 때 반드시 호출해 고아 데이터를 방지하세요.
+    func removeFavorites(forFolder folderID: String) {
+        guard favoritesByFolder[folderID] != nil else { return }
+        favoritesByFolder.removeValue(forKey: folderID)
         persist()
     }
 
     // MARK: - UserDefaults 동기화
 
     private func persist() {
-        if let encoded = try? JSONEncoder().encode(favoriteIDs) {
+        if let encoded = try? JSONEncoder().encode(favoritesByFolder) {
             UserDefaults.standard.set(encoded, forKey: storageKey)
         }
     }

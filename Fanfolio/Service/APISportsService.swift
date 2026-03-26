@@ -2,9 +2,14 @@
 //  APISportsService.swift
 //  Fanfolio
 //
-//  API-Sports 네트워킹 서비스
-//  주의: 무료 티어 하루 100회 호출 제한 - Timer 자동 새로고침 절대 사용 금지!
-//  오직 .refreshable { } 클로저 내에서만 호출하세요.
+//  API-Sports 네트워킹 서비스 - 비미국 리그 전담 서브 엔진
+//
+//  ⚠️ 비용 방어 규칙 (필독):
+//  - 무료 티어 하루 100회 호출 제한 - Timer 자동 새로고침 절대 금지!
+//  - 오직 .refreshable { } 또는 사용자 명시 액션에서만 호출
+//
+//  ✅ 담당 리그: KBO·EPL·라리가·분데스리가·세리에A·리그1 등 비미국 리그
+//  ❌ 미국 4대 스포츠(NFL·NBA·MLB·NHL)는 ESPN API 사용 (무제한 무료)
 //
 
 import Foundation
@@ -22,25 +27,63 @@ enum APISportsError: Error, LocalizedError {
     
     var errorDescription: String? {
         switch self {
-        case .invalidURL: return "잘못된 API URL입니다."
-        case .noAPIKey: return "API 키가 설정되지 않았습니다. Info.plist에 API_SPORTS_KEY를 추가하세요."
-        case .rateLimitExceeded: return "오늘 API 호출 한도(100회)를 초과했습니다. 내일 다시 시도해주세요."
-        case .decodingFailed(let msg): return "데이터 파싱 오류: \(msg)"
-        case .networkError(let err): return "네트워크 오류: \(err.localizedDescription)"
-        case .noData: return "데이터가 없습니다."
+        case .invalidURL:
+            return String(localized: "api.error.invalidURL", defaultValue: "잘못된 API URL입니다.")
+        case .noAPIKey:
+            return String(localized: "api.error.noAPIKey", defaultValue: "API 키가 설정되지 않았습니다. 프로젝트 루트에서 APIKeys.xcconfig.example을 복사해 APIKeys.xcconfig를 만들고 API_SPORTS_KEY를 넣은 뒤 다시 빌드하세요.")
+        case .rateLimitExceeded:
+            return String(localized: "api.error.dailyLimitExceeded", defaultValue: "오늘 API 호출 한도(100회)를 초과했습니다. 내일 다시 시도해주세요.")
+        case .decodingFailed(let msg):
+            return String(
+                format: String(localized: "api.error.decodingFailedFormat", defaultValue: "데이터 파싱 오류: %@"),
+                locale: .autoupdatingCurrent,
+                msg
+            )
+        case .networkError(let err):
+            return String(
+                format: String(localized: "api.error.networkErrorFormat", defaultValue: "네트워크 오류: %@"),
+                locale: .autoupdatingCurrent,
+                err.localizedDescription
+            )
+        case .noData:
+            return String(localized: "api.error.noData", defaultValue: "데이터가 없습니다.")
         }
     }
 }
 
 // MARK: - API-Sports 서비스
 
-@MainActor
-final class APISportsService {
+actor APISportsService {
     
     static let shared = APISportsService()
     private init() {}
-    
+
+    /// ESPN이 지원하지 않는 비미국 전담 리그 코드 집합
+    /// 이 목록에 포함된 리그만 API-Sports로 라이브 스코어를 조회한다.
+    static let nonESPNLeagues: Set<String> = [
+        "KBO",    // 한국 야구
+        "KBL",    // 한국 농구
+        "ENG.1",  // EPL
+        "ESP.1",  // 라리가
+        "GER.1",  // 분데스리가
+        "ITA.1",  // 세리에 A
+        "FRA.1",  // 리그 1
+        "USA.1",  // MLS
+        "NED.1",  // 에레디비시
+        "POR.1",  // 프리메이라리가
+        "TUR.1",  // 쉬페르리그
+        "BEL.1",  // 주필러 프로리그
+        "GRE.1",  // 슈퍼리그 그리스
+        "CZE.1",  // 체코 포르스트리가
+        "DEN.1",  // 수페르리가
+    ]
+
     private let session = URLSession.shared
+
+    /// 팀 로스터 캐시 (30분 TTL)
+    private let squadCache    = TTLCache<String, [APISportsSquadPlayer]>(ttl: APIConfig.CacheTTL.roster)
+    /// KBO 일정 캐시 (1시간 TTL)
+    private let scheduleCache = TTLCache<String, [MatchEvent]>(ttl: APIConfig.CacheTTL.schedule)
     
     // MARK: - 공통 요청 헬퍼
     
@@ -58,8 +101,8 @@ final class APISportsService {
     }
     
     private func fetch<T: Decodable>(_ type: T.Type, request: URLRequest) async throws -> T {
-        // RateLimiter 확인
-        guard APIRateLimiter.shared.consume() else {
+        // RateLimiter 확인 (APIRateLimiter는 @MainActor이므로 await 필요)
+        guard await APIRateLimiter.shared.consume() else {
             throw APISportsError.rateLimitExceeded
         }
 
@@ -98,79 +141,6 @@ final class APISportsService {
         }
     }
     
-    // MARK: - NFL 실시간/오늘 경기
-    
-    /// NFL 팀의 오늘 경기 또는 실시간 경기를 가져옵니다.
-    func fetchNFLGames(teamID: Int) async throws -> [LiveFixture] {
-        guard let request = makeRequest(
-            baseURL: APIConfig.apiSportsURLs["NFL"] ?? "",
-            path: "/games",
-            params: [
-                "team": "\(teamID)",
-                "season": currentSeason(),
-            ]
-        ) else { throw APISportsError.noAPIKey }
-        
-        let response = try await fetch(APISportsNFLResponse.self, request: request)
-        return response.response.compactMap { parsedNFLGame($0) }
-    }
-    
-    /// NFL 팀의 오늘 경기만 가져옵니다.
-    func fetchNFLLiveOrTodayGames(teamID: Int) async throws -> [LiveFixture] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        let today = formatter.string(from: Date())
-        
-        guard let request = makeRequest(
-            baseURL: APIConfig.apiSportsURLs["NFL"] ?? "",
-            path: "/games",
-            params: ["team": "\(teamID)", "date": today]
-        ) else { throw APISportsError.noAPIKey }
-        
-        let response = try await fetch(APISportsNFLResponse.self, request: request)
-        return response.response.compactMap { parsedNFLGame($0) }
-    }
-    
-    private func parsedNFLGame(_ game: APISportsNFLGame) -> LiveFixture? {
-        let status = LiveFixtureStatus(
-            short: game.game.status.short,
-            elapsed: Int(game.game.status.timer ?? ""),
-            period: game.game.status.quarter.map { "Q\($0)" }
-        )
-        
-        var periods: [PeriodScore] = []
-        let hs = game.scores.home
-        let as_ = game.scores.away
-        if hs.quarter_1 != nil || as_.quarter_1 != nil {
-            periods.append(PeriodScore(period: "1Q", home: hs.quarter_1, away: as_.quarter_1))
-        }
-        if hs.quarter_2 != nil || as_.quarter_2 != nil {
-            periods.append(PeriodScore(period: "2Q", home: hs.quarter_2, away: as_.quarter_2))
-        }
-        if hs.quarter_3 != nil || as_.quarter_3 != nil {
-            periods.append(PeriodScore(period: "3Q", home: hs.quarter_3, away: as_.quarter_3))
-        }
-        if hs.quarter_4 != nil || as_.quarter_4 != nil {
-            periods.append(PeriodScore(period: "4Q", home: hs.quarter_4, away: as_.quarter_4))
-        }
-        if hs.overtime != nil || as_.overtime != nil {
-            periods.append(PeriodScore(period: "OT", home: hs.overtime, away: as_.overtime))
-        }
-        
-        let ts = game.game.date.timestamp.map { Date(timeIntervalSince1970: TimeInterval($0)) }
-        
-        return LiveFixture(
-            id: game.game.id,
-            homeTeam: LiveTeamInfo(id: game.teams.home.id, name: game.teams.home.name, logoURL: game.teams.home.logo),
-            awayTeam: LiveTeamInfo(id: game.teams.away.id, name: game.teams.away.name, logoURL: game.teams.away.logo),
-            score: LiveScore(home: game.scores.home.total, away: game.scores.away.total),
-            status: status,
-            league: LiveLeagueInfo(id: 1, name: "NFL", season: Int(currentSeason())),
-            startTime: ts,
-            periods: periods
-        )
-    }
-    
     // MARK: - 축구 실시간/오늘 경기
     
     func fetchSoccerGames(leagueID: Int, teamID: Int) async throws -> [LiveFixture] {
@@ -204,12 +174,12 @@ final class APISportsService {
         let ht = fixture.score.halftime
         let ft = fixture.score.fulltime
         if ht.home != nil || ht.away != nil {
-            periods.append(PeriodScore(period: "전반", home: ht.home, away: ht.away))
+            periods.append(PeriodScore(period: String(localized: "scoreboard.period.firstHalf", defaultValue: "전반"), home: ht.home, away: ht.away))
         }
         if ft.home != nil || ft.away != nil {
             let secondHalfHome = ft.home.flatMap { fh in ht.home.map { fh - $0 } }
             let secondHalfAway = ft.away.flatMap { fa in ht.away.map { fa - $0 } }
-            periods.append(PeriodScore(period: "후반", home: secondHalfHome, away: secondHalfAway))
+            periods.append(PeriodScore(period: String(localized: "scoreboard.period.secondHalf", defaultValue: "후반"), home: secondHalfHome, away: secondHalfAway))
         }
         
         let ts = fixture.fixture.timestamp.map { Date(timeIntervalSince1970: TimeInterval($0)) }
@@ -230,6 +200,9 @@ final class APISportsService {
     
     /// API-Sports에서 팀 로스터를 가져옵니다.
     func fetchSquad(sportType: SportType, teamID: Int) async throws -> [APISportsSquadPlayer] {
+        let cacheKey = "squad:\(sportType):\(teamID)"
+        if let cached = squadCache.get(cacheKey) { return cached }
+
         let baseURL: String
         let path: String
         var params: [String: String] = ["team": "\(teamID)"]
@@ -258,92 +231,67 @@ final class APISportsService {
         }
         
         let response = try await fetch(APISportsSquadResponse.self, request: request)
-        return response.response.first?.players ?? []
+        let players = response.response.first?.players ?? []
+        squadCache.set(cacheKey, value: players)
+        return players
     }
     
-    // MARK: - 선수 시즌 스텟
-    
-    func fetchPlayerStats(sportType: SportType, playerID: Int) async throws -> PlayerSeasonStats? {
-        let baseURL: String
-        let path: String
-        let params: [String: String] = [
-            "id": "\(playerID)",
-            "season": currentSeason(),
-        ]
-        
-        switch sportType {
-        case .americanFootball:
-            baseURL = APIConfig.apiSportsURLs["NFL"] ?? ""
-            path = "/players/statistics"
-        case .soccer:
-            baseURL = APIConfig.apiSportsURLs["soccer"] ?? ""
-            path = "/players"
-        case .basketball:
-            baseURL = APIConfig.apiSportsURLs["NBA"] ?? ""
-            path = "/players/statistics"
-        default:
-            return nil
-        }
-        
-        guard let request = makeRequest(baseURL: baseURL, path: path, params: params) else {
-            throw APISportsError.noAPIKey
-        }
-        
-        let response = try await fetch(APISportsPlayerStatsResponse.self, request: request)
-        guard let item = response.response.first,
-              let stats = item.statistics.first else { return nil }
-        
-        return parseStats(stats, sport: sportType)
+    // MARK: - KBO 경기 일정 (지난 경기 + 예정 경기)
+
+    /// KBO 팀의 시즌 전체 경기 일정을 가져옵니다 (완료 + 예정 혼합).
+    func fetchKBOSchedule(teamID: Int) async throws -> [MatchEvent] {
+        let year = Calendar.current.component(.year, from: Date())
+        let cacheKey = "kbo_schedule:\(teamID):\(year)"
+        if let cached = scheduleCache.get(cacheKey) { return cached }
+
+        guard let request = makeRequest(
+            baseURL: APIConfig.apiSportsURLs["KBO"] ?? "",
+            path: "/games",
+            params: ["team": "\(teamID)", "league": "\(APIConfig.LeagueIDs.kbo)", "season": "\(year)"]
+        ) else { throw APISportsError.noAPIKey }
+
+        let response = try await fetch(APISportsBaseballGamesResponse.self, request: request)
+        let events = response.response.compactMap { parseKBOGame($0, teamID: teamID) }
+        scheduleCache.set(cacheKey, value: events)
+        return events
     }
-    
-    private func parseStats(_ stats: APISportsStatistics, sport: SportType) -> PlayerSeasonStats {
-        PlayerSeasonStats(
-            gamesPlayed: stats.games?.played,
-            passingTouchdowns: stats.passing?.touchdowns,
-            passingYards: stats.passing?.yards,
-            rushingTouchdowns: stats.rushing?.touchdowns,
-            rushingYards: stats.rushing?.yards,
-            receptions: stats.receiving?.receptions,
-            receivingYards: stats.receiving?.yards,
-            receivingTouchdowns: stats.receiving?.touchdowns,
-            sacks: stats.defensive?.sacks,
-            interceptions: stats.defensive?.interceptions,
-            goals: stats.goals?.total,
-            assists: stats.goals?.assists,
-            yellowCards: stats.cards?.yellow,
-            redCards: stats.cards?.red,
-            minutesPlayed: stats.games?.minutes,
-            shotsOnTarget: nil,
-            points: stats.points?.total,
-            rebounds: nil,
-            basketballAssists: nil,
-            steals: nil,
-            blocks: nil,
-            battingAvg: nil,
-            homeRuns: nil,
-            rbi: nil,
-            era: nil,
-            strikeouts: nil,
-            wins: nil,
-            raceWins: nil,
-            podiums: nil,
-            championshipPoints: nil,
-            polePositions: nil
+
+    private func parseKBOGame(_ game: APISportsBaseballGame, teamID: Int) -> MatchEvent? {
+        let isHome  = game.teams.home.id == teamID
+        let oppTeam = isHome ? game.teams.away : game.teams.home
+        let isCompleted = game.status.short == "FT" || game.status.short == "F"
+        let myScore  = isHome ? game.scores?.home?.total : game.scores?.away?.total
+        let oppScore = isHome ? game.scores?.away?.total : game.scores?.home?.total
+
+        let isoFull = ISO8601DateFormatter()
+        isoFull.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date: Date? = game.date.flatMap {
+            isoFull.date(from: $0) ?? ISO8601DateFormatter().date(from: $0)
+        }
+
+        return MatchEvent(
+            id: "api-sports:\(game.id)",
+            opponentName: oppTeam.name,
+            isHome: isHome,
+            myScore:      isCompleted ? myScore  : nil,
+            opponentScore: isCompleted ? oppScore : nil,
+            date: date,
+            leagueName: "KBO",
+            isCompleted: isCompleted
         )
     }
-    
+
     // MARK: - 헬퍼
     
     private func currentSeason() -> String {
         let year = Calendar.current.component(.year, from: Date())
         let month = Calendar.current.component(.month, from: Date())
-        // NFL/NBA는 시즌이 전년도 가을 시작
-        return month >= 3 ? "\(year)" : "\(year - 1)"
+        return month >= APIConfig.SeasonBoundary.generalStartMonth ? "\(year)" : "\(year - 1)"
     }
     
     private func currentSoccerSeason() -> String {
         let year = Calendar.current.component(.year, from: Date())
         let month = Calendar.current.component(.month, from: Date())
-        return month >= 8 ? "\(year)" : "\(year - 1)"
+        return month >= APIConfig.SeasonBoundary.soccerStartMonth ? "\(year)" : "\(year - 1)"
     }
 }
