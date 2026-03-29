@@ -31,18 +31,23 @@ struct TicketCustomTextOverlay: View {
     let text: String
     let cardWidth: CGFloat
     let cardHeight: CGFloat
+    var showsBranding: Bool = true
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                Text("FANFOLIO")
-                    .font(.system(size: 10, weight: .black))
-                    .tracking(4.5)
-                    .foregroundStyle(.white.opacity(0.50))
+            if showsBranding {
+                HStack {
+                    Spacer()
+                    Text("FANFOLIO")
+                        .font(.system(size: 10, weight: .black))
+                        .tracking(4.5)
+                        .foregroundStyle(.white.opacity(0.50))
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+            } else {
+                Spacer().frame(height: 24)
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 24)
 
             Text(text)
                 .font(.system(size: 54, weight: .black))
@@ -84,6 +89,8 @@ struct MatchTicketModel {
     var leagueCode: String?
     var designStyle: TicketDesignStyle = .standard
     var customOverlayText: String? = nil
+    /// PRO 공유·갤러리 마스터 저장 시 false. 프리뷰·무료 공유는 true.
+    var showsBrandingWatermark: Bool = true
 }
 
 // MARK: - 모델 헬퍼
@@ -239,7 +246,8 @@ struct MatchTicketCardView: View {
             TicketCustomTextOverlay(
                 text: model.customOverlayText ?? String(localized: "ticket.overlay.placeholder", defaultValue: "여기에 글을 입력하세요"),
                 cardWidth: W,
-                cardHeight: H
+                cardHeight: H,
+                showsBranding: model.showsBrandingWatermark
             )
         }
     }
@@ -247,15 +255,19 @@ struct MatchTicketCardView: View {
     // 기본: 수평 결과 텍스트 + 워터마크
     private var standardOverlay: some View {
         VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                Text("FANFOLIO")
-                    .font(.system(size: 10, weight: .black))
-                    .tracking(4.5)
-                    .foregroundStyle(.white.opacity(0.50))
+            if model.showsBrandingWatermark {
+                HStack {
+                    Spacer()
+                    Text("FANFOLIO")
+                        .font(.system(size: 10, weight: .black))
+                        .tracking(4.5)
+                        .foregroundStyle(.white.opacity(0.50))
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+            } else {
+                Spacer().frame(height: 24)
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 24)
 
             Text(model.resultHeadline)
                 .font(.system(size: 58, weight: .black))
@@ -272,18 +284,19 @@ struct MatchTicketCardView: View {
     // 세로: 결과 텍스트를 90도 회전하여 왼쪽에 배치
     private var rotatedTextOverlay: some View {
         ZStack {
-            // 워터마크
-            VStack {
-                HStack {
+            if model.showsBrandingWatermark {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Text("FANFOLIO")
+                            .font(.system(size: 10, weight: .black))
+                            .tracking(4.5)
+                            .foregroundStyle(.white.opacity(0.50))
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 24)
                     Spacer()
-                    Text("FANFOLIO")
-                        .font(.system(size: 10, weight: .black))
-                        .tracking(4.5)
-                        .foregroundStyle(.white.opacity(0.50))
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
-                Spacer()
             }
 
             // 90도 회전 텍스트 — 왼쪽 세로 배치 (카드 중앙 높이 기준)

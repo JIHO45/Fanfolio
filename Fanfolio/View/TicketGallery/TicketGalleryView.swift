@@ -17,6 +17,7 @@ struct TicketGalleryView: View {
     @State private var ticketToDelete: SavedTicket?
     @State private var shareImage: UIImage?
     @State private var shareErrorMessage: String?
+    @State private var isPreparingShare = false
     
     private var filteredTickets: [SavedTicket] {
         guard let selectedSportType else { return tickets }
@@ -144,11 +145,23 @@ struct TicketGalleryView: View {
     }
     
     private func shareTicket(_ ticket: SavedTicket) {
-        guard let image = TicketImageStore.loadImage(path: ticket.imagePath) else {
-            shareErrorMessage = String(localized: "ticket.gallery.error.imageMissing", defaultValue: "이 기기에서 티켓 원본 이미지를 찾을 수 없습니다.")
-            return
+        guard !isPreparingShare else { return }
+        isPreparingShare = true
+        let path = ticket.imagePath
+        Task {
+            let image = await TicketImageExport.prepareSavedTicketShareImage(
+                relativeMasterPath: path,
+                isPro: FanfolioEntitlements.isPro
+            )
+            await MainActor.run {
+                isPreparingShare = false
+                if let image {
+                    shareImage = image
+                } else {
+                    shareErrorMessage = String(localized: "ticket.gallery.error.sharePrepareFailed", defaultValue: "공유용 이미지를 만들지 못했습니다.")
+                }
+            }
         }
-        shareImage = image
     }
     
     private func deleteSelectedTicket() {
@@ -181,8 +194,8 @@ struct SavedTicketThumbnailView: View {
                         .scaledToFill()
                 } else {
                     MissingTicketImagePlaceholder(
-                        title: "로컬 이미지 없음",
-                        subtitle: "이 기기에서 생성된 티켓만 볼 수 있어요."
+                        title: String(localized: "ticket.gallery.placeholder.missingLocalImage.title", defaultValue: "로컬 이미지 없음"),
+                        subtitle: String(localized: "ticket.gallery.placeholder.missingLocalImage.subtitle", defaultValue: "이 기기에서 생성된 티켓만 볼 수 있어요.")
                     )
                     .padding(16)
                 }
@@ -229,6 +242,8 @@ struct TicketImageViewerView: View {
     let ticket: SavedTicket
     
     @State private var shareImage: UIImage?
+    @State private var isPreparingShare = false
+    @State private var shareFailedMessage: String?
     @State private var scale: CGFloat = 1
     @State private var lastScale: CGFloat = 1
     @State private var offset: CGSize = .zero
@@ -310,8 +325,8 @@ struct TicketImageViewerView: View {
                 }
             } else {
                 MissingTicketImagePlaceholder(
-                    title: "티켓 이미지를 찾을 수 없습니다",
-                    subtitle: "다른 기기에서 동기화된 기록이거나 파일이 삭제되었을 수 있습니다."
+                    title: String(localized: "ticket.gallery.placeholder.viewerMissing.title", defaultValue: "티켓 이미지를 찾을 수 없습니다"),
+                    subtitle: String(localized: "ticket.gallery.placeholder.viewerMissing.subtitle", defaultValue: "다른 기기에서 동기화된 기록이거나 파일이 삭제되었을 수 있습니다.")
                 )
                 .padding(24)
             }
@@ -332,8 +347,23 @@ struct TicketImageViewerView: View {
                     Spacer()
                     
                     Button {
-                        guard let image = TicketImageStore.loadImage(path: ticket.imagePath) else { return }
-                        shareImage = image
+                        guard !isPreparingShare else { return }
+                        isPreparingShare = true
+                        let path = ticket.imagePath
+                        Task {
+                            let image = await TicketImageExport.prepareSavedTicketShareImage(
+                                relativeMasterPath: path,
+                                isPro: FanfolioEntitlements.isPro
+                            )
+                            await MainActor.run {
+                                isPreparingShare = false
+                                if let image {
+                                    shareImage = image
+                                } else {
+                                    shareFailedMessage = String(localized: "ticket.gallery.error.sharePrepareFailed", defaultValue: "공유용 이미지를 만들지 못했습니다.")
+                                }
+                            }
+                        }
                     } label: {
                         Image(systemName: "square.and.arrow.up")
                             .font(.headline.weight(.bold))
@@ -341,7 +371,15 @@ struct TicketImageViewerView: View {
                             .frame(width: 40, height: 40)
                             .background(.black.opacity(0.5))
                             .clipShape(Circle())
+                            .overlay {
+                                if isPreparingShare {
+                                    ProgressView()
+                                        .tint(.white)
+                                        .scaleEffect(0.9)
+                                }
+                            }
                     }
+                    .disabled(isPreparingShare)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -374,6 +412,16 @@ struct TicketImageViewerView: View {
             if let shareImage {
                 FanfolioShareSheet(items: [shareImage])
             }
+        }
+        .alert(String(localized: "ticket.gallery.shareUnavailable.title", defaultValue: "공유할 수 없음"), isPresented: Binding(
+            get: { shareFailedMessage != nil },
+            set: { if !$0 { shareFailedMessage = nil } }
+        )) {
+            Button(String(localized: "common.action.ok", defaultValue: "확인"), role: .cancel) {
+                shareFailedMessage = nil
+            }
+        } message: {
+            Text(shareFailedMessage ?? "")
         }
     }
 }

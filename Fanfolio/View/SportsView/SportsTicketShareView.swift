@@ -156,7 +156,7 @@ struct SportsTicketShareView: View {
         return VStack {
             Spacer()
             ZStack {
-                MatchTicketCardView(model: currentCardModel)
+                MatchTicketCardView(model: previewCardModel)
                     .frame(
                         width: MatchTicketCardView.designWidth,
                         height: MatchTicketCardView.designHeight
@@ -212,7 +212,11 @@ struct SportsTicketShareView: View {
 
     // MARK: - 현재 카드 모델 조립
 
-    private var currentCardModel: MatchTicketModel {
+    private var previewCardModel: MatchTicketModel {
+        makeCardModel(showsBrandingWatermark: true)
+    }
+
+    private func makeCardModel(showsBrandingWatermark: Bool) -> MatchTicketModel {
         MatchTicketModel(
             teamName: match.team1Display,
             opponentTeam: match.team2Display,
@@ -233,7 +237,8 @@ struct SportsTicketShareView: View {
             designStyle: designStyle,
             customOverlayText: designStyle == .customText
                 ? (customOverlayText.isEmpty ? nil : customOverlayText)
-                : nil
+                : nil,
+            showsBrandingWatermark: showsBrandingWatermark
         )
     }
 
@@ -506,8 +511,7 @@ struct SportsTicketShareView: View {
     // MARK: - ImageRenderer 렌더링 (공유 버튼 탭 시에만 호출)
 
     @MainActor
-    private func buildImage() async -> UIImage? {
-        let model = currentCardModel
+    private func renderTicketImage(model: MatchTicketModel, scale: CGFloat) -> UIImage? {
         let renderer = ImageRenderer(
             content: MatchTicketCardView(model: model)
                 .frame(
@@ -515,13 +519,27 @@ struct SportsTicketShareView: View {
                     height: MatchTicketCardView.designHeight
                 )
         )
-        renderer.scale = 3
+        renderer.scale = scale
         renderer.isOpaque = true
         renderer.proposedSize = ProposedViewSize(
             width: MatchTicketCardView.designWidth,
             height: MatchTicketCardView.designHeight
         )
         return renderer.uiImage
+    }
+
+    @MainActor
+    private func buildImageForStorage() async -> UIImage? {
+        let model = makeCardModel(showsBrandingWatermark: false)
+        return renderTicketImage(model: model, scale: TicketImageExport.storageRendererScale)
+    }
+
+    @MainActor
+    private func buildImageForSharing() async -> UIImage? {
+        let isPro = FanfolioEntitlements.isPro
+        let scale = isPro ? TicketImageExport.proShareRendererScale : TicketImageExport.freeShareRendererScale
+        let model = makeCardModel(showsBrandingWatermark: !isPro)
+        return renderTicketImage(model: model, scale: scale)
     }
 
     // MARK: - 유틸
@@ -534,7 +552,7 @@ struct SportsTicketShareView: View {
     @MainActor
     private func shareRenderedImage() async {
         isRendering = true
-        shareImage = await buildImage()
+        shareImage = await buildImageForSharing()
         isRendering = false
         if shareImage != nil {
             showingActivityShareSheet = true
@@ -546,7 +564,7 @@ struct SportsTicketShareView: View {
         isSavingToGallery = true
         defer { isSavingToGallery = false }
 
-        guard let image = await buildImage() else {
+        guard let image = await buildImageForStorage() else {
             photoVM.saveErrorMessage = String(localized: "ticket.share.error.renderFailed", defaultValue: "티켓 이미지를 생성하지 못했습니다.")
             return
         }

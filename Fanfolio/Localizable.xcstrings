@@ -4882,6 +4882,91 @@
         }
       }
     },
+    "ticket.gallery.error.sharePrepareFailed" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't create an image to share."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "공유용 이미지를 만들지 못했습니다."
+          }
+        }
+      }
+    },
+    "ticket.gallery.placeholder.missingLocalImage.subtitle" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can only view tickets created on this device."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "이 기기에서 생성된 티켓만 볼 수 있어요."
+          }
+        }
+      }
+    },
+    "ticket.gallery.placeholder.missingLocalImage.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No local image"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "로컬 이미지 없음"
+          }
+        }
+      }
+    },
+    "ticket.gallery.placeholder.viewerMissing.subtitle" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This may be a synced record from another device, or the file may have been removed."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "다른 기기에서 동기화된 기록이거나 파일이 삭제되었을 수 있습니다."
+          }
+        }
+      }
+    },
+    "ticket.gallery.placeholder.viewerMissing.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ticket image not found"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "티켓 이미지를 찾을 수 없습니다"
+          }
+        }
+      }
+    },
     "ticket.gallery.filteredEmpty.description" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
