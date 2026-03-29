@@ -17,27 +17,30 @@ struct TicketImageFiles {
 
 enum TicketImageStore {
     private static let directoryName = "TicketImages"
-    private static let thumbnailSize = CGSize(width: 270, height: 480)
-    private static let maxFullWidth: CGFloat = 1024
-    private static let fullImageJPEGQuality: CGFloat = 0.8
+    /// 리스트·그리드용 썸네일 (긴 변)
+    private static let thumbnailLongEdge: CGFloat = 400
+    private static let thumbnailJPEGQuality: CGFloat = 0.7
+    /// 상세·공유 소스 마스터 (긴 변)
+    private static let masterLongEdge: CGFloat = 2048
+    private static let masterJPEGQuality: CGFloat = 0.8
     
     static func save(image: UIImage, ticketID: UUID = UUID()) throws -> TicketImageFiles {
         try ensureDirectoryExists()
         
         let baseName = ticketID.uuidString
-        let imagePath = "\(directoryName)/\(baseName).jpg"
+        let imagePath = "\(directoryName)/\(baseName)_master.jpg"
         let thumbnailPath = "\(directoryName)/\(baseName)_thumb.jpg"
         let imageURL = try url(forRelativePath: imagePath)
         let thumbnailURL = try url(forRelativePath: thumbnailPath)
         
-        let resized = downscaleForStorage(image, maxWidth: maxFullWidth)
-        guard let imageData = resized.jpegData(compressionQuality: fullImageJPEGQuality) else {
+        let master = downscaleForStorage(image, maxLongEdge: masterLongEdge)
+        guard let imageData = master.jpegData(compressionQuality: masterJPEGQuality) else {
             throw TicketImageStoreError.encodingFailed
         }
         try imageData.write(to: imageURL, options: .atomic)
         
-        let thumbnail = makeThumbnail(from: resized, targetSize: thumbnailSize)
-        guard let thumbnailData = thumbnail.jpegData(compressionQuality: 0.82) else {
+        let thumbnail = downscaleForStorage(image, maxLongEdge: thumbnailLongEdge)
+        guard let thumbnailData = thumbnail.jpegData(compressionQuality: thumbnailJPEGQuality) else {
             try? FileManager.default.removeItem(at: imageURL)
             throw TicketImageStoreError.thumbnailEncodingFailed
         }
@@ -118,38 +121,19 @@ enum TicketImageStore {
         return url
     }
     
-    private static func downscaleForStorage(_ image: UIImage, maxWidth: CGFloat) -> UIImage {
+    /// 긴 변 기준으로 축소. 이미 작으면 원본 반환.
+    private static func downscaleForStorage(_ image: UIImage, maxLongEdge: CGFloat) -> UIImage {
         let width = image.size.width
         let height = image.size.height
-        guard width > maxWidth else { return image }
-        let scale = maxWidth / width
-        let newSize = CGSize(width: maxWidth, height: height * scale)
+        let longEdge = max(width, height)
+        guard longEdge > maxLongEdge else { return image }
+        let scale = maxLongEdge / longEdge
+        let newSize = CGSize(width: floor(width * scale), height: floor(height * scale))
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
         return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: newSize))
-        }
-    }
-    
-    private static func makeThumbnail(from image: UIImage, targetSize: CGSize) -> UIImage {
-        let format = UIGraphicsImageRendererFormat.default()
-        format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
-        
-        return renderer.image { _ in
-            UIColor.black.setFill()
-            UIBezierPath(rect: CGRect(origin: .zero, size: targetSize)).fill()
-            
-            let widthRatio = targetSize.width / image.size.width
-            let heightRatio = targetSize.height / image.size.height
-            let scale = max(widthRatio, heightRatio)
-            let drawSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-            let drawOrigin = CGPoint(
-                x: (targetSize.width - drawSize.width) / 2,
-                y: (targetSize.height - drawSize.height) / 2
-            )
-            image.draw(in: CGRect(origin: drawOrigin, size: drawSize))
         }
     }
 }
