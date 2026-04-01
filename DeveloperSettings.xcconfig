@@ -1,6 +1,7 @@
 // Fanfolio 앱 타깃 전용 빌드 설정 (커밋됨)
-// API-Sports 키: 같은 폴더에 APIKeys.xcconfig를 두세요( gitignore됨 ).
+// 비밀 값: 프로젝트 루트에 APIKeys.xcconfig (gitignore됨)
 //   cp APIKeys.xcconfig.example APIKeys.xcconfig
-//   후 API_SPORTS_KEY 값을 입력합니다.
+//   API_SPORTS_KEY, MAPBOX_ACCESS_TOKEN(Mapbox 대시보드의 pk. 토큰 — URL/번들 제한 권장) 입력
 API_SPORTS_KEY =
+MAPBOX_ACCESS_TOKEN =
 #include? "APIKeys.xcconfig"

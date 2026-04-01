@@ -4,6 +4,8 @@
 <dict>
 	<key>API_SPORTS_KEY</key>
 	<string>$(API_SPORTS_KEY)</string>
+	<key>MBXAccessToken</key>
+	<string>$(MAPBOX_ACCESS_TOKEN)</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

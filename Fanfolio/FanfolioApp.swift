@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import MapboxMaps
 import os.log
 
 @main
@@ -16,6 +17,11 @@ struct FanfolioApp: App {
     @State private var networkMonitor = NetworkMonitor.shared
 
     init() {
+        if let token = Bundle.main.object(forInfoDictionaryKey: "MBXAccessToken") as? String,
+           !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            MapboxOptions.accessToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
         let schema = Schema([
             SportsFanFolder.self,
             SportsModel.self,

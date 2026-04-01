@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		D86F7BE12F6BCC8200260107 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = D86F7BE02F6BCC8200260107 /* Kingfisher */; };
+		D87D6D3F2F7A395400D7A894 /* MapboxMaps in Frameworks */ = {isa = PBXBuildFile; productRef = D87D6D3E2F7A395400D7A894 /* MapboxMaps */; };
 		D8D1BFE12F42DB8D008DE051 /* espn_teams_master.json in Resources */ = {isa = PBXBuildFile; fileRef = D8D1BFE02F42DB8D008DE051 /* espn_teams_master.json */; };
 /* End PBXBuildFile section */
 
@@ -72,6 +73,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D87D6D3F2F7A395400D7A894 /* MapboxMaps in Frameworks */,
 				D86F7BE12F6BCC8200260107 /* Kingfisher in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -136,6 +138,7 @@
 			name = Fanfolio;
 			packageProductDependencies = (
 				D86F7BE02F6BCC8200260107 /* Kingfisher */,
+				D87D6D3E2F7A395400D7A894 /* MapboxMaps */,
 			);
 			productName = Fanfolio;
 			productReference = D84DF8A92EE9A66200205AA9 /* Fanfolio.app */;
@@ -221,6 +224,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				D86F7BDF2F6BCC8200260107 /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				D87D6D3D2F7A395400D7A894 /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D84DF8AA2EE9A66200205AA9 /* Products */;
@@ -628,6 +632,14 @@
 				minimumVersion = 8.8.0;
 			};
 		};
+		D87D6D3D2F7A395400D7A894 /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mapbox/mapbox-maps-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -635,6 +647,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D86F7BDF2F6BCC8200260107 /* XCRemoteSwiftPackageReference "Kingfisher" */;
 			productName = Kingfisher;
+		};
+		D87D6D3E2F7A395400D7A894 /* MapboxMaps */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D87D6D3D2F7A395400D7A894 /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */;
+			productName = MapboxMaps;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

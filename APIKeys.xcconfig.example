@@ -2,3 +2,6 @@
 //   cp APIKeys.xcconfig.example APIKeys.xcconfig
 // APIKeys.xcconfig는 Git에 커밋하지 마세요.
 API_SPORTS_KEY = YOUR_API_SPORTS_KEY_HERE
+// Mapbox: https://account.mapbox.com/access-tokens/ 에서 Public token (pk.로 시작) 생성.
+// 대시보드에서 URL 제한·번들 ID(iOS: com.your.app) 제한을 켜 두면 유출 시 피해를 줄일 수 있습니다.
+MAPBOX_ACCESS_TOKEN = YOUR_MAPBOX_PUBLIC_TOKEN_HERE
