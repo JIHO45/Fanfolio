@@ -114,6 +114,8 @@ struct MatchEvent: Identifiable {
     let leagueName: String?
     let isCompleted: Bool
     var isLive: Bool = false    // 현재 진행 중인 경기
+    /// ESPN `venue`에서 만든 MKLocalSearch용 문자열. 없으면 지도는 휴리스틱·수동 장소에 의존.
+    var importedVenueSearchQuery: String? = nil
     /// ESPN 등에서 내려준 홈·원정 기준 쿼터/이닝 점수 (없으면 빈 배열)
     var periods: [PeriodScore] = []
 
@@ -216,6 +218,10 @@ class SportsModel: ArchiveItemProtocol {
     var matchStatus: MatchStatus
     var isHomeGame: Bool
     var location: String?
+    /// MKLocalSearch 등으로 구한 구장 위도. `SavedTicket`과 동기화·백필 시 채움.
+    var venueLatitude: Double?
+    /// 구장 경도.
+    var venueLongitude: Double?
     var qrCodeImageData: Data?
     
     /// 외부 API 이벤트 고유 ID, 형식: "source:id" (예: "espn:401671704", "api-sports:1234")
@@ -245,6 +251,8 @@ class SportsModel: ArchiveItemProtocol {
         isHomeGame: Bool = true,
         date: Date? = nil,
         location: String? = nil,
+        venueLatitude: Double? = nil,
+        venueLongitude: Double? = nil,
         memo: String? = nil,
         qrCodeImageData: Data? = nil,
         photosData: [Data]? = nil,
@@ -262,6 +270,8 @@ class SportsModel: ArchiveItemProtocol {
         self.isHomeGame = isHomeGame
         self.date = date
         self.location = location
+        self.venueLatitude = venueLatitude
+        self.venueLongitude = venueLongitude
         self.memo = memo
         self.qrCodeImageData = qrCodeImageData
         self.photosData = photosData
@@ -322,6 +332,37 @@ extension SportsModel {
         h.combine(folder?.name)
         return h.finalize()
     }
+
+    /// 지도 백필용 검색어. 사용자 입력 `location` 우선, 없으면 불러오기 경기용 홈/원정 추정 쿼리.
+    var mapGeocodeQuery: String? {
+        let trimmed = location?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmed.isEmpty { return trimmed }
+        return mapGeocodeFallbackQuery
+    }
+
+    /// `location`이 비었을 때만 사용하는 휴리스틱(종목·홈/원정).
+    private var mapGeocodeFallbackQuery: String? {
+        guard matchStatus == .completed else { return nil }
+        let homeName = team1Display
+        let awayName = opponentTeam
+        switch folder?.sportType {
+        case .baseball:
+            return isHomeGame ? "\(homeName) 야구장" : "\(awayName) 야구장"
+        case .soccer:
+            return isHomeGame ? "\(homeName) 축구장" : "\(awayName) 축구장"
+        case .basketball:
+            return isHomeGame ? "\(homeName) 농구장" : "\(awayName) 농구장"
+        case .americanFootball:
+            let base = isHomeGame ? "\(homeName) NFL stadium" : "\(awayName) NFL stadium"
+            return "\(base), USA"
+        case .other, .none:
+            return isHomeGame ? "\(homeName) stadium" : "\(awayName) stadium"
+        }
+    }
+
+    var hasVenueCoordinate: Bool {
+        venueLatitude != nil && venueLongitude != nil
+    }
 }
 
 extension SportsFanFolder {
@@ -371,6 +412,14 @@ class SavedTicket {
     var sportType: SportType
     var matchDate: Date?
     
+    /// MKLocalSearch 등으로 구한 위도. nil이면 지도에 표시 전 지오코딩 필요.
+    var latitude: Double?
+    /// MKLocalSearch 등으로 구한 경도.
+    var longitude: Double?
+
+    /// 저장 시점 경기 `location` 스냅샷. `match`가 없어져도 지오코딩·표시에 사용합니다.
+    var venueSearchQuery: String?
+    
     var match: SportsModel?
     
     init(
@@ -385,6 +434,9 @@ class SavedTicket {
         matchResult: MatchResult,
         sportType: SportType,
         matchDate: Date? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil,
+        venueSearchQuery: String? = nil,
         match: SportsModel? = nil
     ) {
         self.ticketID = ticketID
@@ -398,7 +450,25 @@ class SavedTicket {
         self.matchResult = matchResult
         self.sportType = sportType
         self.matchDate = matchDate
+        self.latitude = latitude
+        self.longitude = longitude
+        self.venueSearchQuery = venueSearchQuery
         self.match = match
+    }
+}
+
+extension SavedTicket {
+    /// 지오코딩용 검색어: 스냅샷 우선, 없으면 연결된 경기 장소(레거시 데이터).
+    var resolvedVenueSearchQuery: String? {
+        let snap = venueSearchQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !snap.isEmpty { return snap }
+        let loc = match?.location?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return loc.isEmpty ? nil : loc
+    }
+
+    /// UI 표시용 장소 라벨(콜아웃 등).
+    var displayVenueLabel: String? {
+        resolvedVenueSearchQuery
     }
 }
 

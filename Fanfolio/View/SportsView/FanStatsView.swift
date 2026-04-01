@@ -51,6 +51,7 @@ struct FanStatsView: View {
                     )
                 } else if let r = statsResult {
                     luckyFanCard(r)
+                    stadiumMapEntryCard
                     recordSummaryCard(r)
                     opponentSection(r)
                     heatmapSection(r)
@@ -80,6 +81,41 @@ struct FanStatsView: View {
         }.value
         statsResult = result
         isComputing = false
+    }
+}
+
+// MARK: - 직관 지도
+extension FanStatsView {
+    private var stadiumMapEntryCard: some View {
+        NavigationLink {
+            FolderStadiumMapView(folder: folder)
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "map.fill")
+                    .font(.title2)
+                    .foregroundStyle(.blue)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Color.blue.opacity(0.12)))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(String(localized: "fanstats.map.entry.title", defaultValue: "직관 지도"))
+                        .font(.headline)
+                    Text(String(localized: "fanstats.map.entry.subtitle", defaultValue: "완료한 경기 구장을 한눈에 (티켓 없이도 표시)"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

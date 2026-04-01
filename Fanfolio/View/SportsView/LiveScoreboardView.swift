@@ -110,6 +110,7 @@ struct LiveScoreboardView: View {
         HStack(spacing: 10) {
             teamLogo(url: team.logoURL)
 
+            // 팀명 열을 동일한 가변 폭으로 맞춰 홈/원정·헤더 행의 피리어드 열이 한 줄로 정렬됨
             VStack(alignment: .leading, spacing: 2) {
                 Text(team.name)
                     .font(.subheadline.weight(.semibold))
@@ -120,8 +121,7 @@ struct LiveScoreboardView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if !fixture.periods.isEmpty {
                 HStack(spacing: 0) {
@@ -131,7 +131,7 @@ struct LiveScoreboardView: View {
                             .font(.caption)
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
-                            .frame(width: periodColumnWidth)
+                            .frame(width: periodColumnWidth, alignment: .center)
                     }
                 }
             }
@@ -149,27 +149,32 @@ struct LiveScoreboardView: View {
     // MARK: - 피리어드 헤더 테이블
     
     private var periodTable: some View {
-        HStack(spacing: 0) {
-            // 빈 공간 (팀명 영역)
-            Spacer()
-            
-            // 쿼터/이닝 헤더
+        HStack(spacing: 10) {
+            // teamScoreLine과 동일: 로고(28) + 간격(10) + 팀명 가변열
+            Color.clear
+                .frame(width: 28, height: 1)
+                .accessibilityHidden(true)
+            Color.clear
+                .frame(maxWidth: .infinity, minHeight: 1)
+                .accessibilityHidden(true)
+
             HStack(spacing: 0) {
                 ForEach(fixture.periods) { period in
                     Text(period.period)
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(.tertiary)
-                        .frame(width: periodColumnWidth)
+                        .frame(width: periodColumnWidth, alignment: .center)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
             }
-            
+
             Text("합계")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.tertiary)
                 .frame(width: 40, alignment: .trailing)
-                .padding(.trailing, 14)
         }
-        .padding(.leading, 14)
+        .padding(.horizontal, 14)
         .padding(.vertical, 6)
         .background(Color.secondary.opacity(0.04))
         .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 16, bottomTrailingRadius: 16))

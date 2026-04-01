@@ -32,51 +32,8 @@ struct TicketGalleryView: View {
     var body: some View {
         VStack(spacing: 0) {
             filterSection
-            
-            if filteredTickets.isEmpty {
-                ContentUnavailableView {
-                    Label {
-                        Text(tickets.isEmpty
-                            ? String(localized: "ticket.gallery.empty.title", defaultValue: "저장된 티켓이 없습니다")
-                            : String(localized: "ticket.gallery.filteredEmpty.title", defaultValue: "조건에 맞는 티켓이 없습니다"))
-                    } icon: {
-                        Image(systemName: "ticket")
-                    }
-                } description: {
-                    Text(tickets.isEmpty
-                        ? String(localized: "ticket.gallery.empty.description", defaultValue: "경기 상세에서 티켓 이미지를 저장하면 여기에서 다시 볼 수 있습니다.")
-                        : String(localized: "ticket.gallery.filteredEmpty.description", defaultValue: "다른 종목 필터를 선택해보세요."))
-                }
+            galleryGridContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(filteredTickets) { ticket in
-                            SavedTicketThumbnailView(ticket: ticket)
-                                .contentShape(RoundedRectangle(cornerRadius: 18))
-                                .onTapGesture {
-                                    selectedTicket = ticket
-                                }
-                                .contextMenu {
-                                    Button {
-                                        shareTicket(ticket)
-                                    } label: {
-                                        Label(String(localized: "common.action.share", defaultValue: "공유"), systemImage: "square.and.arrow.up")
-                                    }
-                                    
-                                    Button(role: .destructive) {
-                                        ticketToDelete = ticket
-                                    } label: {
-                                        Label(String(localized: "common.action.delete", defaultValue: "삭제"), systemImage: "trash")
-                                    }
-                                }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .padding(.bottom, 24)
-                }
-            }
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle(String(localized: "ticket.gallery.navigationTitle", defaultValue: "티켓 갤러리"))
@@ -114,6 +71,54 @@ struct TicketGalleryView: View {
         }
         .fullScreenCover(item: $selectedTicket) { ticket in
             TicketImageViewerView(ticket: ticket)
+        }
+    }
+
+    @ViewBuilder
+    private var galleryGridContent: some View {
+        if filteredTickets.isEmpty {
+            ContentUnavailableView {
+                Label {
+                    Text(tickets.isEmpty
+                        ? String(localized: "ticket.gallery.empty.title", defaultValue: "저장된 티켓이 없습니다")
+                        : String(localized: "ticket.gallery.filteredEmpty.title", defaultValue: "조건에 맞는 티켓이 없습니다"))
+                } icon: {
+                    Image(systemName: "ticket")
+                }
+            } description: {
+                Text(tickets.isEmpty
+                    ? String(localized: "ticket.gallery.empty.description", defaultValue: "경기 상세에서 티켓 이미지를 저장하면 여기에서 다시 볼 수 있습니다.")
+                    : String(localized: "ticket.gallery.filteredEmpty.description", defaultValue: "다른 종목 필터를 선택해보세요."))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(filteredTickets) { ticket in
+                        SavedTicketThumbnailView(ticket: ticket)
+                            .contentShape(RoundedRectangle(cornerRadius: 18))
+                            .onTapGesture {
+                                selectedTicket = ticket
+                            }
+                            .contextMenu {
+                                Button {
+                                    shareTicket(ticket)
+                                } label: {
+                                    Label(String(localized: "common.action.share", defaultValue: "공유"), systemImage: "square.and.arrow.up")
+                                }
+
+                                Button(role: .destructive) {
+                                    ticketToDelete = ticket
+                                } label: {
+                                    Label(String(localized: "common.action.delete", defaultValue: "삭제"), systemImage: "trash")
+                                }
+                            }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 24)
+            }
         }
     }
     
@@ -188,7 +193,7 @@ struct SavedTicketThumbnailView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.secondary.opacity(0.08))
                 
-                if let image = TicketImageStore.loadImage(path: ticket.thumbnailPath) {
+                if let image = TicketImageStore.loadImageCached(path: ticket.thumbnailPath) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()

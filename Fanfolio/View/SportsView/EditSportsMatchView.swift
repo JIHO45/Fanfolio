@@ -422,6 +422,13 @@ extension EditSportsMatchView {
     }
     
     private func saveChanges() {
+        let oldLocKey = (match.location ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let newLocKey = location.trimmingCharacters(in: .whitespacesAndNewlines)
+        let shouldResetVenueCoords =
+            match.opponentTeam != opponentTeam
+            || match.isHomeGame != isHomeGame
+            || oldLocKey != newLocKey
+
         match.opponentTeam = opponentTeam
         match.team1 = hasFavoriteTeam ? nil : (team1.isEmpty ? nil : team1)
         match.myTeamScore = myTeamScore
@@ -431,6 +438,10 @@ extension EditSportsMatchView {
         match.isHomeGame = isHomeGame
         match.date = includeTime ? date : Calendar.current.startOfDay(for: date)
         match.location = location.isEmpty ? nil : location
+        if shouldResetVenueCoords {
+            match.venueLatitude = nil
+            match.venueLongitude = nil
+        }
         match.memo = memo.isEmpty ? nil : memo
         match.qrCodeImageData = qrCodeImageData
         

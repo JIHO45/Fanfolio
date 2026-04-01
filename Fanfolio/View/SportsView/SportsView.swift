@@ -28,10 +28,10 @@ struct SportsView: View {
     // MARK: - 즐겨찾기 상태 (배너 뱃지용)
     @State private var favorites = FavoritePlayersManager.shared
     
-    /// 예정 + 진행중 경기 (가까운 날짜가 위에)
+    /// 경기 예정만 (가까운 날짜가 위). 진행 중은 상단 실시간 스코어로만 표시해 중복 카드를 없앰.
     private var activeMatches: [SportsModel] {
         folder.matches
-            .filter { $0.matchStatus != .completed }
+            .filter { $0.matchStatus == .upcoming }
             .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
     }
     
@@ -114,10 +114,10 @@ struct SportsView: View {
                     errorBanner(message: error)
                 }
 
-                // 예정/진행중 경기 (상단 고정)
+                // 예정 경기 (진행 중은 실시간 스코어 전용)
                 if !activeMatches.isEmpty {
                     sectionHeader(
-                        title: "예정 · 진행 중",
+                        title: String(localized: "sports.section.upcomingMatches", defaultValue: "예정"),
                         iconName: "clock",
                         count: activeMatches.count
                     )

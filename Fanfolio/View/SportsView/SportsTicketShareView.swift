@@ -571,6 +571,10 @@ struct SportsTicketShareView: View {
 
         do {
             let storedFiles = try TicketImageStore.save(image: image)
+            let venueSnapshot: String? = {
+                let t = match.location?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return t.isEmpty ? nil : t
+            }()
             let savedTicket = SavedTicket(
                 ticketID: storedFiles.ticketID,
                 imagePath: storedFiles.imagePath,
@@ -582,6 +586,7 @@ struct SportsTicketShareView: View {
                 matchResult: match.matchResult,
                 sportType: match.folder?.sportType ?? .other,
                 matchDate: match.date,
+                venueSearchQuery: venueSnapshot,
                 match: match
             )
             modelContext.insert(savedTicket)
@@ -589,6 +594,11 @@ struct SportsTicketShareView: View {
             do {
                 try modelContext.save()
                 photoVM.showSaveToast(String(localized: "ticket.share.toast.savedToGallery", defaultValue: "내 갤러리에 저장했어요."))
+                if venueSnapshot != nil {
+                    Task {
+                        await geocodeSavedTicket(savedTicket)
+                    }
+                }
             } catch {
                 TicketImageStore.delete(paths: [storedFiles.imagePath, storedFiles.thumbnailPath])
                 modelContext.delete(savedTicket)
@@ -596,6 +606,29 @@ struct SportsTicketShareView: View {
             }
         } catch {
             photoVM.saveErrorMessage = error.localizedDescription
+        }
+    }
+
+    /// 갤러리 저장 직후 구장명으로 좌표를 채웁니다. 실패해도 사용자 메시지는 띄우지 않습니다.
+    private func geocodeSavedTicket(_ ticket: SavedTicket) async {
+        guard let query = ticket.resolvedVenueSearchQuery else { return }
+        let fanFolder = ticket.match?.folder
+        let applyLeagueBias = StadiumGeocodingService.shouldApplyLeagueGeocodeBias(forQuery: query)
+        let biasRegion = applyLeagueBias ? fanFolder.flatMap { StadiumGeocodingService.preferredSearchRegion(folder: $0) } : nil
+        let countryCode = applyLeagueBias ? fanFolder.flatMap { StadiumGeocodingService.preferredISOCountryCode(folder: $0) } : nil
+        guard let coord = try? await StadiumGeocodingService.coordinate(
+            for: query,
+            biasRegion: biasRegion,
+            preferredISOCountryCode: countryCode
+        ) else { return }
+        await MainActor.run {
+            ticket.latitude = coord.latitude
+            ticket.longitude = coord.longitude
+            if let m = ticket.match {
+                m.venueLatitude = coord.latitude
+                m.venueLongitude = coord.longitude
+            }
+            try? modelContext.save()
         }
     }
 }

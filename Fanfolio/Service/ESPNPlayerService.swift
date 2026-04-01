@@ -210,7 +210,10 @@ actor ESPNPlayerService {
         } else {
             statusShort = espnStatusShort(statusName: statusName, period: period, sport: sport)
         }
-        let elapsed     = competition.status.clock.map { Int($0 / 60) }
+        // 야구는 ESPN `clock`이 타석/공수 타이머 등으로 축구용 "경과 분"과 맞지 않음(0이면 UI에 "0′" 표시).
+        let elapsed: Int? = (sport == "baseball")
+            ? nil
+            : competition.status.clock.map { Int($0 / 60) }
 
         let status = LiveFixtureStatus(
             short: statusShort,
@@ -218,7 +221,7 @@ actor ESPNPlayerService {
             period: statusShort
         )
 
-        let periods = espnLineScorePeriods(home: home, away: away, sport: sport, statusShort: statusShort)
+        let periods = espnLineScorePeriods(home: home, away: away, sport: sport)
 
         // 시작 시간 파싱
         // ESPN은 초 없는 형식("2026-04-15T18:00Z")과 초 있는 형식("2026-04-15T18:00:00Z"),
@@ -245,16 +248,28 @@ actor ESPNPlayerService {
     nonisolated private func espnLineScorePeriods(
         home: ESPNLiveCompetitor,
         away: ESPNLiveCompetitor,
-        sport: String,
-        statusShort: String
+        sport: String
     ) -> [PeriodScore] {
-        let periodLabels = espnPeriodLabels(sport: sport)
-        let homeLines    = home.linescores ?? []
-        let awayLines    = away.linescores ?? []
-        var maxPeriods   = max(homeLines.count, awayLines.count)
-        if sport == "baseball", statusShort == "FT" {
-            maxPeriods = max(maxPeriods, 9)
+        let homeLines = home.linescores ?? []
+        let awayLines = away.linescores ?? []
+
+        // MLB: 최소 9이닝 칼럼(미진행 이닝은 nil → UI에서 "-"), 연장은 데이터 길이만큼 확장
+        if sport == "baseball" {
+            let maxFromData = max(homeLines.count, awayLines.count)
+            let inningCount = max(9, maxFromData)
+            var periods: [PeriodScore] = []
+            for inning in 1...inningCount {
+                let label = baseballInningLabel(inningOneBased: inning)
+                let i = inning - 1
+                let hVal = i < homeLines.count ? homeLines[i].value.map { Int($0) } : nil
+                let aVal = i < awayLines.count ? awayLines[i].value.map { Int($0) } : nil
+                periods.append(PeriodScore(period: label, home: hVal, away: aVal))
+            }
+            return periods
         }
+
+        let periodLabels = espnPeriodLabels(sport: sport)
+        var maxPeriods   = max(homeLines.count, awayLines.count)
 
         var periods: [PeriodScore] = []
         for i in 0..<maxPeriods {
@@ -262,12 +277,20 @@ actor ESPNPlayerService {
             let hVal       = i < homeLines.count ? homeLines[i].value.map { Int($0) } : nil
             let aVal       = i < awayLines.count ? awayLines[i].value.map { Int($0) } : nil
             let includeRow = (hVal != nil || aVal != nil)
-                || (sport == "baseball" && statusShort == "FT")
             if includeRow {
                 periods.append(PeriodScore(period: label, home: hVal, away: aVal))
             }
         }
         return periods
+    }
+
+    /// MLB 이닝 헤더( `scoreboard.inning.labelFormat` 과 동일 )
+    nonisolated private func baseballInningLabel(inningOneBased: Int) -> String {
+        String(
+            format: String(localized: "scoreboard.inning.labelFormat", defaultValue: "%lld회"),
+            locale: .autoupdatingCurrent,
+            Int64(max(inningOneBased, 1))
+        )
     }
 
     // MARK: - ESPN 상태 코드 → LiveFixtureStatus.short 변환
@@ -313,11 +336,7 @@ actor ESPNPlayerService {
             default: return "OT"
             }
         case "baseball":    // MLB
-            return String(
-                format: String(localized: "scoreboard.inning.labelFormat", defaultValue: "%lld회"),
-                locale: .autoupdatingCurrent,
-                Int64(max(period, 1))
-            )
+            return baseballInningLabel(inningOneBased: max(period, 1))
         default:
             return period > 0 ? "\(period)Q" : "1Q"
         }
@@ -330,13 +349,7 @@ actor ESPNPlayerService {
         case "basketball": return ["1Q", "2Q", "3Q", "4Q"]
         case "hockey":     return ["1P", "2P", "3P"]
         case "baseball":
-            return (1...9).map {
-                String(
-                    format: String(localized: "scoreboard.inning.labelFormat", defaultValue: "%lld회"),
-                    locale: .autoupdatingCurrent,
-                    Int64($0)
-                )
-            }
+            return (1...9).map { baseballInningLabel(inningOneBased: $0) }
         default:
             return [
                 String(localized: "scoreboard.period.firstHalf", defaultValue: "전반"),
@@ -511,19 +524,11 @@ actor ESPNPlayerService {
 
         guard let (sport, _) = teamSportPath(for: leagueCode) else { return nil }
 
-        let statusType = competition.status.type
-        let periodNum  = competition.status.period ?? 0
-        let statusShortForLines: String
-        if statusType.completed == true || statusType.state == "post" {
-            statusShortForLines = "FT"
-        } else if isLive {
-            statusShortForLines = espnStatusShort(statusName: statusType.name, period: periodNum, sport: sport)
-        } else {
-            statusShortForLines = "NS"
-        }
         let periods: [PeriodScore] = (isCompleted || isLive)
-            ? espnLineScorePeriods(home: home, away: away, sport: sport, statusShort: statusShortForLines)
+            ? espnLineScorePeriods(home: home, away: away, sport: sport)
             : []
+
+        let venueQuery = ESPNCompetitionVenueGeocodeQuery.mkLocalSearchQuery(from: competition.venue)
 
         return MatchEvent(
             id: "espn:\(event.id)",
@@ -535,6 +540,7 @@ actor ESPNPlayerService {
             leagueName: leagueCode,
             isCompleted: isCompleted,
             isLive: isLive,
+            importedVenueSearchQuery: venueQuery,
             periods: periods
         )
     }

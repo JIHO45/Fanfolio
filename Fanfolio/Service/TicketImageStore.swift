@@ -16,6 +16,13 @@ struct TicketImageFiles {
 }
 
 enum TicketImageStore {
+    /// 지도 마커 등 반복 그리기에서 디스크 접근을 피하기 위한 메모리 캐시.
+    private static let memoryImageCache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 120
+        return cache
+    }()
+
     private static let directoryName = "TicketImages"
     /// 리스트·그리드용 썸네일 (긴 변)
     private static let thumbnailLongEdge: CGFloat = 400
@@ -61,6 +68,24 @@ enum TicketImageStore {
         }
         return UIImage(data: data)
     }
+
+    /// `loadImage`와 동일 파일을 읽되, 한 번 디코딩한 뒤 메모리에 보관합니다. 삭제 시 `delete`가 캐시를 무효화합니다.
+    static func loadImageCached(path: String) -> UIImage? {
+        guard !path.isEmpty else { return nil }
+        let key = path as NSString
+        if let cached = memoryImageCache.object(forKey: key) {
+            return cached
+        }
+        guard let image = loadImage(path: path) else { return nil }
+        memoryImageCache.setObject(image, forKey: key)
+        return image
+    }
+
+    static func removeCachedImages(paths: [String]) {
+        for path in paths where !path.isEmpty {
+            memoryImageCache.removeObject(forKey: path as NSString)
+        }
+    }
     
     static func imageExists(path: String) -> Bool {
         guard let url = try? url(forRelativePath: path) else { return false }
@@ -69,6 +94,7 @@ enum TicketImageStore {
     
     static func delete(paths: [String]) {
         let uniquePaths = Array(Set(paths.filter { !$0.isEmpty }))
+        removeCachedImages(paths: uniquePaths)
         for path in uniquePaths {
             guard let url = try? url(forRelativePath: path) else { continue }
             guard FileManager.default.fileExists(atPath: url.path) else { continue }

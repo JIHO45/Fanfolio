@@ -459,6 +459,7 @@ extension MatchEvent {
             matchStatus: status,
             isHomeGame: isHome,
             date: date,
+            location: importedVenueSearchQuery,
             orderIndex: folder.matches.count,
             externalEventID: id,
             importedPeriodScoresData: periodData

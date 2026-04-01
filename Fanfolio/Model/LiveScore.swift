@@ -44,7 +44,11 @@ struct LiveFixtureStatus: Codable {
     
     var isLive: Bool {
         let liveStatuses = ["1Q","2Q","3Q","4Q","OT","HT","1H","2H","LIVE","IN_PLAY","1ST","2ND","3RD","4TH","5TH","6TH","7TH","8TH","9TH"]
-        return liveStatuses.contains(short)
+        if liveStatuses.contains(short) { return true }
+        // ESPN MLB: `ESPNPlayerService.espnPeriodShort`가 이닝을 "7TH"가 아니라 로컬라이즈 문자열만 넣음(예: ko "7회", en "7").
+        if short.hasSuffix("회"), short != "회" { return true }
+        if let inning = Int(short), (1...18).contains(inning) { return true }
+        return false
     }
     
     var isUpcoming: Bool { short == "NS" || short == "TBD" }
@@ -73,6 +77,9 @@ struct LiveFixtureStatus: Codable {
         case "FT", "F": return "종료"
         case "AOT": return "연장 종료"
         default:
+            // 야구 이닝(로컬 "%lld회" / 숫자만): 축구용 경과 분(′)은 MLB에 부적합
+            if short.hasSuffix("회"), short != "회" { return short }
+            if let n = Int(short), (1...18).contains(n) { return short }
             if let e = elapsed {
                 return "\(e)′"
             }
@@ -191,6 +198,58 @@ struct ESPNLiveEvent: Decodable {
 struct ESPNLiveCompetition: Decodable {
     let status: ESPNLiveCompetitionStatus
     let competitors: [ESPNLiveCompetitor]
+    /// 스케줄·스코어보드 공통. TBD·누락·비정상 타입 시 nil (경기 전체 파싱은 유지).
+    let venue: ESPNCompetitionVenue?
+
+    enum CodingKeys: String, CodingKey {
+        case status, competitors, venue
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        status = try container.decode(ESPNLiveCompetitionStatus.self, forKey: .status)
+        competitors = try container.decode([ESPNLiveCompetitor].self, forKey: .competitors)
+        venue = try? container.decode(ESPNCompetitionVenue.self, forKey: .venue)
+    }
+}
+
+// MARK: - ESPN 경기장 (지도 검색용)
+
+struct ESPNCompetitionVenue: Decodable, Sendable {
+    let id: String?
+    let fullName: String?
+    let displayName: String?
+    let shortName: String?
+    let address: ESPNCompetitionVenueAddress?
+}
+
+struct ESPNCompetitionVenueAddress: Decodable, Sendable {
+    let city: String?
+    let state: String?
+    let country: String?
+}
+
+enum ESPNCompetitionVenueGeocodeQuery {
+    /// `venue` → MKLocalSearch에 넣을 최선의 문자열. 불충분하면 nil(휴리스틱으로 폴백).
+    static func mkLocalSearchQuery(from venue: ESPNCompetitionVenue?) -> String? {
+        guard let venue else { return nil }
+        let nameRaw = venue.fullName ?? venue.displayName ?? venue.shortName
+        guard let name = nameRaw?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
+            return nil
+        }
+        guard let address = venue.address else { return name }
+        let city = address.city?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !city.isEmpty else { return name }
+        let state = address.state?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !state.isEmpty {
+            return "\(name), \(city), \(state)"
+        }
+        let country = address.country?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !country.isEmpty {
+            return "\(name), \(city), \(country)"
+        }
+        return "\(name), \(city)"
+    }
 }
 
 struct ESPNLiveCompetitionStatus: Decodable {
