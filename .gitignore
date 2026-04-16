@@ -39,6 +39,7 @@ fastlane/test_output
 # 아래 파일에 실제 API 키를 넣고 절대 커밋하지 마세요.
 # APIKeys.xcconfig.example 파일을 복사해서 사용하세요.
 APIKeys.xcconfig
+DeveloperSettings.xcconfig
 Secrets.xcconfig
 *.env
 .env.local
