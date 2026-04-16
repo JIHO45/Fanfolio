@@ -105,7 +105,7 @@ enum MatchStatus: String, Codable, CaseIterable, Identifiable {
 // MARK: - MatchEvent (API에서 불러온 경기 일정 임시 데이터)
 
 struct MatchEvent: Identifiable {
-    let id: String              // "espn:{eventID}" / "api-sports:{gameID}"
+    let id: String              // "espn:{eventID}" / "firestore-kbo:{gameID}"
     let opponentName: String
     let isHome: Bool
     let myScore: Int?           // 완료·진행 중 경기에만 존재
@@ -114,6 +114,8 @@ struct MatchEvent: Identifiable {
     let leagueName: String?
     let isCompleted: Bool
     var isLive: Bool = false    // 현재 진행 중인 경기
+    /// 상대팀 로고 URL (KBO 등 ESPN JSON이 없는 리그에서 Firestore로부터 전달)
+    var opponentLogoURL: String? = nil
     /// ESPN `venue`에서 만든 MKLocalSearch용 문자열. 없으면 지도는 휴리스틱·수동 장소에 의존.
     var importedVenueSearchQuery: String? = nil
     /// ESPN 등에서 내려준 홈·원정 기준 쿼터/이닝 점수 (없으면 빈 배열)
@@ -157,13 +159,18 @@ enum MatchResult: String, Codable, CaseIterable, Identifiable {
 /// 사이드바에 표시되며, 내부에 경기 기록(SportsModel)을 담는다.
 @Model
 class SportsFanFolder {
-    var name: String
-    var sportType: SportType
-    var orderIndex: Int
+    var name: String = ""
+    var sportType: SportType = SportType.other
+    var orderIndex: Int = 0
     /// 폴더별 최애를 분리 저장하기 위한 고유 식별자 (생성 시 자동 부여, 불변)
-    var folderID: UUID
+    var folderID: UUID = UUID()
     @Relationship(deleteRule: .cascade, inverse: \SportsModel.folder)
-    var matches: [SportsModel]
+    var _matches: [SportsModel]?
+
+    var matches: [SportsModel] {
+        get { _matches ?? [] }
+        set { _matches = newValue }
+    }
     
     /// JSON 팀 선택 시 저장 (상대팀 선택, 그라디언트 등에 사용)
     var leagueCode: String?
@@ -180,14 +187,14 @@ class SportsFanFolder {
 
     /// 기타 카테고리 전용 — 상대팀 유무 (폴더 생성 시 결정, 이후 변경 불가)
     /// 팀 스포츠에서는 항상 true
-    var matchHasOpponent: Bool
+    var matchHasOpponent: Bool = true
     
     init(name: String, sportType: SportType, orderIndex: Int = 0, matchHasOpponent: Bool = true) {
         self.name = name
         self.sportType = sportType
         self.orderIndex = orderIndex
         self.folderID = UUID()
-        self.matches = []
+        self._matches = []
         self.matchHasOpponent = matchHasOpponent
     }
     
@@ -203,20 +210,20 @@ class SportsFanFolder {
 @Model
 class SportsModel: ArchiveItemProtocol {
     // 공통 속성 (프로토콜)
-    var title: String
+    var title: String = ""
     var date: Date?
     var memo: String?
-    var orderIndex: Int
+    var orderIndex: Int = 0
     
     // 스포츠 전용 속성
-    var opponentTeam: String
-    var myTeamScore: Int
+    var opponentTeam: String = ""
+    var myTeamScore: Int = 0
     /// 응원 팀 없을 때(리그만 선택) 첫 번째 팀. 있으면 nil이고 folder.name이 내 팀
     var team1: String?
-    var opponentScore: Int
-    var matchResult: MatchResult
-    var matchStatus: MatchStatus
-    var isHomeGame: Bool
+    var opponentScore: Int = 0
+    var matchResult: MatchResult = MatchResult.draw
+    var matchStatus: MatchStatus = MatchStatus.upcoming
+    var isHomeGame: Bool = true
     var location: String?
     /// MKLocalSearch 등으로 구한 구장 위도. `SavedTicket`과 동기화·백필 시 채움.
     var venueLatitude: Double?
@@ -224,9 +231,12 @@ class SportsModel: ArchiveItemProtocol {
     var venueLongitude: Double?
     var qrCodeImageData: Data?
     
-    /// 외부 API 이벤트 고유 ID, 형식: "source:id" (예: "espn:401671704", "api-sports:1234")
+    /// 외부 API 이벤트 고유 ID, 형식: "source:id" (예: "espn:401671704", "firestore-kbo:1234")
     /// 중복 아카이브 방지용
     var externalEventID: String?
+
+    /// 상대팀 로고 URL. ESPN JSON이 없는 리그(KBO 등)에서 import 시 저장.
+    var opponentLogoURL: String?
 
     /// 경기 불러오기 시 API에서 받은 이닝·쿼터별 점수(JSON 인코딩된 `[PeriodScore]`)
     var importedPeriodScoresData: Data?
@@ -239,7 +249,12 @@ class SportsModel: ArchiveItemProtocol {
     // 폴더 관계 (sportType, myTeam은 folder에서 상속)
     var folder: SportsFanFolder?
     @Relationship(deleteRule: .cascade, inverse: \SavedTicket.match)
-    var savedTickets: [SavedTicket]
+    var _savedTickets: [SavedTicket]?
+
+    var savedTickets: [SavedTicket] {
+        get { _savedTickets ?? [] }
+        set { _savedTickets = newValue }
+    }
     
     init(
         title: String,
@@ -276,7 +291,7 @@ class SportsModel: ArchiveItemProtocol {
         self.qrCodeImageData = qrCodeImageData
         self.photosData = photosData
         self.photoPaths = photoPaths
-        self.savedTickets = []
+        self._savedTickets = []
         self.orderIndex = orderIndex
         self.externalEventID = externalEventID
         self.importedPeriodScoresData = importedPeriodScoresData
@@ -398,18 +413,18 @@ extension SportsFanFolder {
 // MARK: - Saved Ticket
 @Model
 class SavedTicket {
-    var ticketID: UUID
-    var imagePath: String
-    var thumbnailPath: String
-    var createdAt: Date
+    var ticketID: UUID = UUID()
+    var imagePath: String = ""
+    var thumbnailPath: String = ""
+    var createdAt: Date = Date.now
     
     // 갤러리 표시용 경기 메타데이터 스냅샷
-    var team1Name: String
-    var team2Name: String
-    var myTeamScore: Int
-    var opponentScore: Int
-    var matchResult: MatchResult
-    var sportType: SportType
+    var team1Name: String = ""
+    var team2Name: String = ""
+    var myTeamScore: Int = 0
+    var opponentScore: Int = 0
+    var matchResult: MatchResult = MatchResult.draw
+    var sportType: SportType = SportType.other
     var matchDate: Date?
     
     /// MKLocalSearch 등으로 구한 위도. nil이면 지도에 표시 전 지오코딩 필요.
@@ -458,6 +473,15 @@ class SavedTicket {
 }
 
 extension SavedTicket {
+    /// 갤러리·풀스크린 등 UI에 표시할 팀명 (KBO는 로케일별 짧은 표기, 저장 스냅샷은 원문 유지).
+    var galleryTeam1Display: String {
+        KBOTeamLogoAsset.uiDisplayName(forTeamName: team1Name, leagueCode: match?.folder?.leagueCode)
+    }
+
+    var galleryTeam2Display: String {
+        KBOTeamLogoAsset.uiDisplayName(forTeamName: team2Name, leagueCode: match?.folder?.leagueCode)
+    }
+
     /// 지오코딩용 검색어: 스냅샷 우선, 없으면 연결된 경기 장소(레거시 데이터).
     var resolvedVenueSearchQuery: String? {
         let snap = venueSearchQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -540,17 +564,22 @@ enum EventStatus: String, Codable, CaseIterable, Identifiable {
 /// 사이드바에 표시되며, 내부에 이벤트 기록(CultureModel)을 담는다.
 @Model
 class CultureFanFolder {
-    var name: String
-    var cultureType: CultureType
-    var orderIndex: Int
+    var name: String = ""
+    var cultureType: CultureType = CultureType.other
+    var orderIndex: Int = 0
     @Relationship(deleteRule: .cascade, inverse: \CultureModel.folder)
-    var events: [CultureModel]
+    var _events: [CultureModel]?
+
+    var events: [CultureModel] {
+        get { _events ?? [] }
+        set { _events = newValue }
+    }
     
     init(name: String, cultureType: CultureType, orderIndex: Int = 0) {
         self.name = name
         self.cultureType = cultureType
         self.orderIndex = orderIndex
-        self.events = []
+        self._events = []
     }
 }
 
@@ -558,17 +587,17 @@ class CultureFanFolder {
 @Model
 class CultureModel: ArchiveItemProtocol {
     // 공통 속성 (프로토콜)
-    var title: String
+    var title: String = ""
     var date: Date?
     var memo: String?
-    var orderIndex: Int
+    var orderIndex: Int = 0
     
     // 문화 전용 속성
     var artist: String?
     var location: String?
     var seatInfo: String?
-    var rating: Int
-    var eventStatus: EventStatus
+    var rating: Int = 0
+    var eventStatus: EventStatus = EventStatus.upcoming
     var qrCodeImageData: Data?
     
     /// 현장 사진 (여러 장) — 레거시. 신규는 photoPaths 사용.

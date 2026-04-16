@@ -87,14 +87,14 @@ struct AddSportsMatchView: View {
                 gamePhotosSection
                 memoSection
             }
-            .navigationTitle("경기 기록")
+            .navigationTitle(String(localized: "addMatch.navigationTitle", defaultValue: "경기 기록"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { dismiss() }
+                    Button(String(localized: "common.action.cancel", defaultValue: "취소")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("저장") { saveMatch() }
+                    Button(String(localized: "common.action.save", defaultValue: "저장")) { saveMatch() }
                         .fontWeight(.semibold)
                         .disabled(isSaveDisabled)
                 }
@@ -111,12 +111,12 @@ struct AddSportsMatchView: View {
                 if opponentTeam == newTeam1 { opponentTeam = "" }
             }
             .sheet(isPresented: $showingMyScorePickerSheet) {
-                ScorePickerSheet(title: team1Name, selection: $myTeamScore, onConfirm: {
+                ScorePickerSheet(title: team1NameUI, selection: $myTeamScore, onConfirm: {
                     showingMyScorePickerSheet = false
                 })
             }
             .sheet(isPresented: $showingOpponentScorePickerSheet) {
-                ScorePickerSheet(title: team2Name, selection: $opponentScore, onConfirm: {
+                ScorePickerSheet(title: team2NameUI, selection: $opponentScore, onConfirm: {
                     showingOpponentScorePickerSheet = false
                 })
             }
@@ -142,7 +142,7 @@ struct ScorePickerSheet: View {
         NavigationStack {
             Picker("", selection: $selection) {
                 ForEach(range, id: \.self) { n in
-                    Text("\(n)").tag(n)
+                    Text(verbatim: "\(n)").tag(n)
                 }
             }
             .pickerStyle(.wheel)
@@ -152,7 +152,7 @@ struct ScorePickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("확인", action: onConfirm)
+                    Button(String(localized: "common.action.ok", defaultValue: "확인"), action: onConfirm)
                 }
             }
         }
@@ -164,17 +164,17 @@ extension AddSportsMatchView {
 
     private var noOpponentTitleSection: some View {
         Section {
-            TextField("예: 테니스 직관, 마라톤 완주", text: $eventTitle)
+            TextField(String(localized: "addMatch.noOpponent.placeholder", defaultValue: "예: 테니스 직관, 마라톤 완주"), text: $eventTitle)
         } header: {
-            Text("제목")
+            Text(String(localized: "addMatch.titleLabel", defaultValue: "제목"))
         } footer: {
-            Text("기록할 경기나 이벤트 이름을 입력하세요.")
+            Text(String(localized: "addMatch.titleHint", defaultValue: "기록할 경기나 이벤트 이름을 입력하세요."))
         }
     }
     
     private var statusSection: some View {
         Section {
-            Picker("경기 상태", selection: $matchStatus) {
+            Picker(String(localized: "addMatch.picker.matchStatus", defaultValue: "경기 상태"), selection: $matchStatus) {
                 ForEach(MatchStatus.allCases) { status in
                     Label(status.displayName, systemImage: status.iconName)
                         .tag(status)
@@ -182,7 +182,7 @@ extension AddSportsMatchView {
             }
             .pickerStyle(.segmented)
         } footer: {
-            Text("경기 전이면 '경기 예정', 이미 끝난 경기를 기록하면 '완료'를 선택하세요.")
+            Text(String(localized: "addMatch.statusHint", defaultValue: "경기 전이면 '경기 예정', 이미 끝난 경기를 기록하면 '완료'를 선택하세요."))
         }
     }
     
@@ -191,7 +191,7 @@ extension AddSportsMatchView {
             if hasFavoriteTeam {
                 // 응원 팀 있음: 내 팀 + 상대 팀
                 HStack {
-                    Text("내 팀")
+                    Text(String(localized: "addMatch.myTeam", defaultValue: "내 팀"))
                     Spacer()
                     HStack(spacing: 6) {
                         Image(systemName: folder.sportType.iconName)
@@ -201,33 +201,33 @@ extension AddSportsMatchView {
                     }
                 }
                 
-                teamPickerGrid(teams: opponentTeams, selection: $opponentTeam, label: "상대 팀")
+                teamPickerGrid(teams: opponentTeams, selection: $opponentTeam, label: String(localized: "addMatch.label.opponent", defaultValue: "상대 팀"))
             } else if !opponentTeams.isEmpty {
                 // 응원 팀 없음: 두 팀 선택 (팀1 vs 팀2)
-                teamPickerGrid(teams: opponentTeams, selection: $team1, label: "팀 1")
-                teamPickerGrid(teams: teamsForTeam2, selection: $opponentTeam, label: "팀 2")
+                teamPickerGrid(teams: opponentTeams, selection: $team1, label: String(localized: "addMatch.label.team1", defaultValue: "팀 1"))
+                teamPickerGrid(teams: teamsForTeam2, selection: $opponentTeam, label: String(localized: "addMatch.label.team2", defaultValue: "팀 2"))
             }
             
             // 리그 없으면 직접 입력
             if opponentTeams.isEmpty {
                 if hasFavoriteTeam {
-                    TextField("상대 팀", text: $opponentTeam)
+                    TextField(String(localized: "addMatch.label.opponent", defaultValue: "상대 팀"), text: $opponentTeam)
                 } else {
                     HStack {
-                        TextField("팀 1", text: $team1)
-                        TextField("팀 2", text: $opponentTeam)
+                        TextField(String(localized: "addMatch.label.team1", defaultValue: "팀 1"), text: $team1)
+                        TextField(String(localized: "addMatch.label.team2", defaultValue: "팀 2"), text: $opponentTeam)
                     }
                 }
             }
             
-            Toggle("홈 경기", isOn: $isHomeGame)
+            Toggle(String(localized: "addMatch.toggle.homeGame", defaultValue: "홈 경기"), isOn: $isHomeGame)
         } header: {
-            Text("경기 정보")
+            Text(String(localized: "addMatch.matchInfo", defaultValue: "경기 정보"))
         } footer: {
             if !opponentTeams.isEmpty {
                 Text(hasFavoriteTeam
-                     ? "같은 리그 팀을 탭하여 선택하세요."
-                     : "경기한 두 팀을 각각 탭하여 선택하세요.")
+                     ? String(localized: "addMatch.footer.sameLeague", defaultValue: "같은 리그 팀을 탭하여 선택하세요.")
+                     : String(localized: "addMatch.footer.pickTwo", defaultValue: "경기한 두 팀을 각각 탭하여 선택하세요."))
             }
         }
     }
@@ -297,16 +297,22 @@ extension AddSportsMatchView {
     
     private var team1Name: String { hasFavoriteTeam ? folder.displayName : team1 }
     private var team2Name: String { opponentTeam }
-    
+    private var team1NameUI: String {
+        KBOTeamLogoAsset.uiDisplayName(forTeamName: team1Name, leagueCode: folder.leagueCode)
+    }
+    private var team2NameUI: String {
+        KBOTeamLogoAsset.uiDisplayName(forTeamName: team2Name, leagueCode: folder.leagueCode)
+    }
+
     private var scoreSection: some View {
-        Section("스코어") {
+        Section(String(localized: "addMatch.section.score", defaultValue: "스코어")) {
             Button {
                 showingMyScorePickerSheet = true
             } label: {
                 HStack {
-                    Text(team1Name)
+                    Text(team1NameUI)
                     Spacer()
-                    Text("\(myTeamScore)")
+                    Text(verbatim: "\(myTeamScore)")
                         .foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
                         .font(.caption2)
@@ -320,9 +326,9 @@ extension AddSportsMatchView {
                 showingOpponentScorePickerSheet = true
             } label: {
                 HStack {
-                    Text(team2Name)
+                    Text(team2NameUI)
                     Spacer()
-                    Text("\(opponentScore)")
+                    Text(verbatim: "\(opponentScore)")
                         .foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
                         .font(.caption2)
@@ -332,7 +338,7 @@ extension AddSportsMatchView {
             .buttonStyle(.plain)
             .disabled(team2Name.isEmpty)
             
-            Picker("결과", selection: $matchResult) {
+            Picker(String(localized: "addMatch.picker.result", defaultValue: "결과"), selection: $matchResult) {
                 ForEach(MatchResult.allCases) { result in
                     Text(result.displayName).tag(result)
                 }
@@ -342,15 +348,15 @@ extension AddSportsMatchView {
     }
     
     private var dateLocationSection: some View {
-        Section("날짜 · 장소") {
-            DatePicker("날짜", selection: $date, displayedComponents: .date)
+        Section(String(localized: "addMatch.section.dateLocation", defaultValue: "날짜 · 장소")) {
+            DatePicker(String(localized: "addMatch.field.date", defaultValue: "날짜"), selection: $date, displayedComponents: .date)
             Toggle(isOn: $includeTime.animation()) {
-                Label("시간 설정", systemImage: "clock")
+                Label(String(localized: "addMatch.toggle.setTime", defaultValue: "시간 설정"), systemImage: "clock")
             }
             if includeTime {
-                DatePicker("시간", selection: $date, displayedComponents: .hourAndMinute)
+                DatePicker(String(localized: "addMatch.field.time", defaultValue: "시간"), selection: $date, displayedComponents: .hourAndMinute)
             }
-            TextField("장소 (선택)", text: $location)
+            TextField(String(localized: "addMatch.field.locationOptional", defaultValue: "장소 (선택)"), text: $location)
         }
     }
     
@@ -400,21 +406,23 @@ extension AddSportsMatchView {
                 matching: .images
             ) {
                 Label(
-                    photosData.isEmpty ? "직관 사진 추가" : "사진 추가 (\(photosData.count)/10)",
+                    photosData.isEmpty
+                        ? String(localized: "addMatch.photos.add", defaultValue: "직관 사진 추가")
+                        : String(format: String(localized: "addMatch.photos.addCount", defaultValue: "사진 추가 (%lld/10)"), locale: .autoupdatingCurrent, Int64(photosData.count)),
                     systemImage: "camera.fill"
                 )
                 .foregroundStyle(.blue)
             }
         } header: {
-            Text("직관 사진")
+            Text(String(localized: "addMatch.photosSection", defaultValue: "직관 사진"))
         } footer: {
-            Text("경기장 사진, 셀카, 음식 등 직관 추억을 기록하세요. (최대 10장)")
+            Text(String(localized: "addMatch.photosHint", defaultValue: "경기장 사진, 셀카, 음식 등 직관 추억을 기록하세요. (최대 10장)"))
         }
     }
     
     private var memoSection: some View {
-        Section("메모") {
-            TextField("경기 감상, 하이라이트 등", text: $memo, axis: .vertical)
+        Section(String(localized: "addMatch.section.memo", defaultValue: "메모")) {
+            TextField(String(localized: "addMatch.memo.placeholder", defaultValue: "경기 감상, 하이라이트 등"), text: $memo, axis: .vertical)
                 .lineLimit(3...6)
         }
     }

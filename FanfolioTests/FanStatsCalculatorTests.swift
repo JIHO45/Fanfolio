@@ -422,4 +422,18 @@ struct OpponentRecordTests {
         let record = OpponentRecord(name: "상대", wins: 3, losses: 2, draws: 1)
         #expect(record.total == 6)
     }
+
+    @Test("팔레트용 결정승률: 승·패가 있으면 승÷(승+패)×100")
+    func decisivePalettePercentUsesWinLossDenominator() {
+        let record = OpponentRecord(name: "상대", wins: 2, losses: 0, draws: 2)
+        #expect(abs(record.decisiveWinRatePercentForPalette - 100) < 0.01)
+        #expect(record.winRatePercentDisplayString == "100%")
+    }
+
+    @Test("무승부만이면 팔레트 중립 45, 표시는 대시")
+    func drawsOnlyNeutralPaletteAndDashDisplay() {
+        let record = OpponentRecord(name: "상대", wins: 0, losses: 0, draws: 3)
+        #expect(record.decisiveWinRatePercentForPalette == 45)
+        #expect(record.winRatePercentDisplayString == "—")
+    }
 }

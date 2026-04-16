@@ -39,7 +39,7 @@ struct AddCultureFolderView: View {
         NavigationStack {
             Form {
                 // 카테고리 선택 (아이콘 그리드)
-                Section("카테고리 선택") {
+                Section(String(localized: "addFolder.section.category", defaultValue: "카테고리 선택")) {
                     LazyVGrid(
                         columns: Array(repeating: GridItem(.flexible()), count: 3),
                         spacing: 12
@@ -73,21 +73,25 @@ struct AddCultureFolderView: View {
                 
                 // 폴더 이름
                 Section {
-                    TextField("예: BTS, 위키드, CGV 영화", text: $name)
+                    TextField(String(localized: "addFolder.textField.placeholder", defaultValue: "예: BTS, 위키드, CGV 영화"), text: $name)
                 } header: {
-                    Text("아티스트 / 폴더 이름")
+                    Text(String(localized: "addFolder.artistName", defaultValue: "아티스트 / 폴더 이름"))
                 } footer: {
-                    Text("좋아하는 아티스트, 작품, 또는 관심사 이름을 입력하세요.")
+                    Text(String(localized: "addFolder.artistHint", defaultValue: "좋아하는 아티스트, 작품, 또는 관심사 이름을 입력하세요."))
                 }
             }
-            .navigationTitle(isEditing ? "폴더 편집" : "새 폴더")
+            .navigationTitle(isEditing
+                             ? String(localized: "addFolder.nav.edit", defaultValue: "폴더 편집")
+                             : String(localized: "addFolder.nav.new", defaultValue: "새 폴더"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { dismiss() }
+                    Button(String(localized: "common.action.cancel", defaultValue: "취소")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isEditing ? "저장" : "만들기") {
+                    Button(isEditing
+                           ? String(localized: "common.action.save", defaultValue: "저장")
+                           : String(localized: "common.action.create", defaultValue: "만들기")) {
                         isEditing ? updateFolder() : createFolder()
                     }
                     .fontWeight(.semibold)

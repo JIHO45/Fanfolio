@@ -55,7 +55,7 @@ struct SharePreviewView: View {
                 
                 VStack(spacing: 0) {
                     // ── 스타일 선택 ──
-                    Picker("스타일", selection: $selectedStyle) {
+                    Picker(String(localized: "share.preview.styleSegment", defaultValue: "스타일"), selection: $selectedStyle) {
                         ForEach(ShareStyle.allCases, id: \.self) { style in
                             Text(style.displayName).tag(style)
                         }
@@ -79,7 +79,7 @@ struct SharePreviewView: View {
                             VStack(spacing: 12) {
                                 ProgressView()
                                     .tint(.white)
-                                Text("이미지 생성 중...")
+                                Text(String(localized: "share.preview.generating", defaultValue: "이미지 생성 중…"))
                                     .font(.caption)
                                     .foregroundStyle(.white.opacity(0.5))
                             }
@@ -95,7 +95,7 @@ struct SharePreviewView: View {
                         HStack(spacing: 10) {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.body.weight(.semibold))
-                            Text("공유하기")
+                            Text(String(localized: "share.preview.shareButton", defaultValue: "공유하기"))
                                 .font(.body.weight(.semibold))
                         }
                         .foregroundStyle(.white)
@@ -110,12 +110,12 @@ struct SharePreviewView: View {
                     .padding(.bottom, 16)
                 }
             }
-            .navigationTitle("공유 미리보기")
+            .navigationTitle(String(localized: "share.preview.navigationTitle", defaultValue: "공유 미리보기"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { dismiss() }
+                    Button(String(localized: "common.action.close", defaultValue: "닫기")) { dismiss() }
                         .foregroundStyle(.white.opacity(0.7))
                 }
             }

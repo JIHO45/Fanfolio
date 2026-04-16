@@ -12,6 +12,7 @@
 //  → 테스트가 있으면 새 코드를 추가할 때 기존 동작을 깨지 않았는지 자동 확인합니다.
 //
 
+import Foundation
 import Testing
 @testable import Fanfolio
 
@@ -96,59 +97,84 @@ struct LiveFixtureStatusTests {
 
     // MARK: - displayText 포맷 변환
 
-    /// API 코드를 한국어 화면 텍스트로 변환하는 로직을 검증합니다.
-    /// 이 부분은 switch 문이므로 각 case를 개별적으로 확인하는 것이 중요합니다.
+    /// API 코드를 `Localizable` 기준으로 locale별 화면 텍스트로 변환하는 로직을 검증합니다.
 
-    @Test("'NS' → '예정'")
+    /// String Catalog 항목은 `en` / `ko` 로컬라이제이션으로 등록되어 있음
+    private let ko = Locale(identifier: "ko")
+    private let en = Locale(identifier: "en")
+
+    @Test("'NS' — ko: 예정 / en: Scheduled")
     func displayTextScheduled() {
-        #expect(LiveFixtureStatus(short: "NS", elapsed: nil, period: nil).displayText == "예정")
+        let s = LiveFixtureStatus(short: "NS", elapsed: nil, period: nil)
+        #expect(s.displayText(for: ko) == "예정")
+        #expect(s.displayText(for: en) == "Scheduled")
     }
 
-    @Test("'1Q' → '1쿼터'")
+    @Test("'1Q' — ko: 1쿼터 / en: 1st quarter")
     func displayTextFirstQuarter() {
-        #expect(LiveFixtureStatus(short: "1Q", elapsed: nil, period: nil).displayText == "1쿼터")
+        let s = LiveFixtureStatus(short: "1Q", elapsed: nil, period: nil)
+        #expect(s.displayText(for: ko) == "1쿼터")
+        #expect(s.displayText(for: en) == "1st quarter")
     }
 
-    @Test("'2Q' → '2쿼터'")
+    @Test("'2Q' — ko: 2쿼터 / en: 2nd quarter")
     func displayTextSecondQuarter() {
-        #expect(LiveFixtureStatus(short: "2Q", elapsed: nil, period: nil).displayText == "2쿼터")
+        let s = LiveFixtureStatus(short: "2Q", elapsed: nil, period: nil)
+        #expect(s.displayText(for: ko) == "2쿼터")
+        #expect(s.displayText(for: en) == "2nd quarter")
     }
 
-    @Test("'OT' → '연장'")
+    @Test("'OT' — ko: 연장 / en: OT")
     func displayTextOT() {
-        #expect(LiveFixtureStatus(short: "OT", elapsed: nil, period: nil).displayText == "연장")
+        let s = LiveFixtureStatus(short: "OT", elapsed: nil, period: nil)
+        #expect(s.displayText(for: ko) == "연장")
+        #expect(s.displayText(for: en) == "OT")
     }
 
-    @Test("'HT' → '하프타임'")
+    @Test("'HT' — ko: 하프타임 / en: Half-time")
     func displayTextHalfTime() {
-        #expect(LiveFixtureStatus(short: "HT", elapsed: nil, period: nil).displayText == "하프타임")
+        let s = LiveFixtureStatus(short: "HT", elapsed: nil, period: nil)
+        #expect(s.displayText(for: ko) == "하프타임")
+        #expect(s.displayText(for: en) == "Half-time")
     }
 
-    @Test("'1H' → '전반'")
-    func displayTextFirstHalf() {
-        #expect(LiveFixtureStatus(short: "1H", elapsed: nil, period: nil).displayText == "전반")
+    @Test("'1H' / '2H' — scoreboard.period 키와 동일")
+    func displayTextSoccerHalves() {
+        let first = LiveFixtureStatus(short: "1H", elapsed: nil, period: nil)
+        let second = LiveFixtureStatus(short: "2H", elapsed: nil, period: nil)
+        #expect(first.displayText(for: ko) == "전반")
+        #expect(first.displayText(for: en) == "1st half")
+        #expect(second.displayText(for: ko) == "후반")
+        #expect(second.displayText(for: en) == "2nd half")
     }
 
-    @Test("'2H' → '후반'")
-    func displayTextSecondHalf() {
-        #expect(LiveFixtureStatus(short: "2H", elapsed: nil, period: nil).displayText == "후반")
-    }
-
-    @Test("'FT' → '종료'")
+    @Test("'FT' — ko: 종료 / en: Final")
     func displayTextFinished() {
-        #expect(LiveFixtureStatus(short: "FT", elapsed: nil, period: nil).displayText == "종료")
+        let s = LiveFixtureStatus(short: "FT", elapsed: nil, period: nil)
+        #expect(s.displayText(for: ko) == "종료")
+        #expect(s.displayText(for: en) == "Final")
     }
 
-    @Test("'AOT' → '연장 종료'")
+    @Test("'AOT' — ko: 연장 종료 / en: Final (OT)")
     func displayTextAOT() {
-        #expect(LiveFixtureStatus(short: "AOT", elapsed: nil, period: nil).displayText == "연장 종료")
+        let s = LiveFixtureStatus(short: "AOT", elapsed: nil, period: nil)
+        #expect(s.displayText(for: ko) == "연장 종료")
+        #expect(s.displayText(for: en) == "Final (OT)")
     }
 
-    @Test("알 수 없는 코드 + elapsed 있으면 '72\\'' 형태로 표시")
+    @Test("알 수 없는 코드 + elapsed 있으면 분(프라임) 접미 — 예: 72′")
     func displayTextWithElapsed() {
         // "LIVE" 코드는 switch default로 빠지면서 elapsed 값을 사용합니다
         let status = LiveFixtureStatus(short: "LIVE", elapsed: 72, period: nil)
-        #expect(status.displayText == "72'")
+        #expect(status.displayText(for: ko) == "72′")
+        #expect(status.displayText(for: en) == "72′")
+    }
+
+    @Test("KBO 'IN3' — 이닝 포맷은 scoreboard.inning.labelFormat")
+    func displayTextApiInningIN3() {
+        let s = LiveFixtureStatus(short: "IN3", elapsed: nil, period: nil)
+        #expect(s.displayText(for: ko) == "3회")
+        #expect(s.displayText(for: en) == "3")
     }
 
     @Test("알 수 없는 코드 + elapsed 없으면 코드 문자열 그대로 반환")

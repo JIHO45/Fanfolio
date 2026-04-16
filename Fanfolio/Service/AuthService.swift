@@ -29,7 +29,11 @@ final class AuthService: NSObject {
     private static let userNameKey = "appleUserName"
     private static let userEmailKey = "appleUserEmail"
     private static let isGuestKey = "isGuestMode"
-    
+
+    private static var localizedGuestDisplayName: String {
+        String(localized: "auth.profile.guestName", defaultValue: "게스트")
+    }
+
     override init() {
         super.init()
         restoreState()
@@ -43,7 +47,7 @@ final class AuthService: NSObject {
         // 게스트 모드 확인
         if defaults.bool(forKey: Self.isGuestKey) {
             isGuest = true
-            userName = defaults.string(forKey: Self.userNameKey) ?? "게스트"
+            userName = defaults.string(forKey: Self.userNameKey) ?? Self.localizedGuestDisplayName
             return
         }
         
@@ -87,9 +91,10 @@ final class AuthService: NSObject {
     // MARK: - 게스트 모드
     func continueAsGuest() {
         isGuest = true
-        userName = "게스트"
+        let name = Self.localizedGuestDisplayName
+        userName = name
         UserDefaults.standard.set(true, forKey: Self.isGuestKey)
-        UserDefaults.standard.set("게스트", forKey: Self.userNameKey)
+        UserDefaults.standard.set(name, forKey: Self.userNameKey)
     }
     
     // MARK: - 이름 업데이트
@@ -175,7 +180,10 @@ extension AuthService: ASAuthorizationControllerDelegate {
         Logger.auth.error("Sign in with Apple failed: \(error.localizedDescription)")
 
         DispatchQueue.main.async {
-            self.errorMessage = "로그인에 실패했습니다. 다시 시도해주세요."
+            self.errorMessage = String(
+                localized: "auth.signInFailed",
+                defaultValue: "로그인에 실패했습니다. 다시 시도해주세요."
+            )
         }
     }
 }

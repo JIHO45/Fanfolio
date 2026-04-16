@@ -9,6 +9,8 @@ import SwiftUI
 
 struct CultureStatsView: View {
     let folder: CultureFanFolder
+
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var showingSharePreviewSheet = false
     
@@ -39,12 +41,30 @@ struct CultureStatsView: View {
     // MARK: - 문화팬 칭호
     private var cultureTitle: (emoji: String, title: String, subtitle: String) {
         switch totalCompleted {
-        case 100...: return ("👑", "문화계의 왕", "100회 이상 관람, 진정한 문화 마스터!")
-        case 50..<100: return ("🎭", "문화 마니아", "당신은 공연의 단골!")
-        case 30..<50: return ("🌟", "열정적인 관객", "꾸준한 관람 기록이 멋져요!")
-        case 15..<30: return ("🎵", "문화 애호가", "문화 생활의 재미를 알아가고 있어요!")
-        case 5..<15: return ("🎬", "문화 입문자", "좋은 시작이에요! 더 많이 즐겨보세요!")
-        default: return ("✨", "문화 새싹", "첫 걸음을 내딛었어요!")
+        case 100...:
+            return ("👑",
+                    String(localized: "cultureStats.fan.tier100.title", defaultValue: "문화계의 왕"),
+                    String(localized: "cultureStats.fan.tier100.subtitle", defaultValue: "100회 이상 관람, 진정한 문화 마스터!"))
+        case 50..<100:
+            return ("🎭",
+                    String(localized: "cultureStats.fan.tier50.title", defaultValue: "문화 마니아"),
+                    String(localized: "cultureStats.fan.tier50.subtitle", defaultValue: "당신은 공연의 단골!"))
+        case 30..<50:
+            return ("🌟",
+                    String(localized: "cultureStats.fan.tier30.title", defaultValue: "열정적인 관객"),
+                    String(localized: "cultureStats.fan.tier30.subtitle", defaultValue: "꾸준한 관람 기록이 멋져요!"))
+        case 15..<30:
+            return ("🎵",
+                    String(localized: "cultureStats.fan.tier15.title", defaultValue: "문화 애호가"),
+                    String(localized: "cultureStats.fan.tier15.subtitle", defaultValue: "문화 생활의 재미를 알아가고 있어요!"))
+        case 5..<15:
+            return ("🎬",
+                    String(localized: "cultureStats.fan.tier5.title", defaultValue: "문화 입문자"),
+                    String(localized: "cultureStats.fan.tier5.subtitle", defaultValue: "좋은 시작이에요! 더 많이 즐겨보세요!"))
+        default:
+            return ("✨",
+                    String(localized: "cultureStats.fan.tier0.title", defaultValue: "문화 새싹"),
+                    String(localized: "cultureStats.fan.tier0.subtitle", defaultValue: "첫 걸음을 내딛었어요!"))
         }
     }
     
@@ -92,18 +112,18 @@ struct CultureStatsView: View {
         let repeatArtist = artistRecords.contains { $0.count >= 3 }
         
         return [
-            CultureMilestone(id: "first", emoji: "🎫", title: "첫 관람", desc: "첫 기록 달성", isUnlocked: totalCompleted >= 1),
-            CultureMilestone(id: "ten", emoji: "⭐️", title: "10회 관람", desc: "10회 기록 달성", isUnlocked: totalCompleted >= 10),
-            CultureMilestone(id: "twentyfive", emoji: "🌟", title: "25회 관람", desc: "25회 기록 달성", isUnlocked: totalCompleted >= 25),
-            CultureMilestone(id: "fifty", emoji: "💫", title: "50회 관람", desc: "50회 기록 달성", isUnlocked: totalCompleted >= 50),
-            CultureMilestone(id: "hundred", emoji: "🏆", title: "100회 관람", desc: "100회 기록 달성", isUnlocked: totalCompleted >= 100),
-            CultureMilestone(id: "perfect", emoji: "💯", title: "완벽한 공연", desc: "별점 5점 기록", isUnlocked: hasHighRating),
-            CultureMilestone(id: "diverse", emoji: "🎨", title: "다양한 취향", desc: "5명 이상 아티스트 관람", isUnlocked: distinctArtists >= 5),
-            CultureMilestone(id: "photographer", emoji: "📸", title: "포토그래퍼", desc: "사진과 함께 기록", isUnlocked: hasPhotos),
-            CultureMilestone(id: "collector", emoji: "🎟️", title: "티켓 수집가", desc: "QR/티켓 사진 첨부", isUnlocked: hasQR),
-            CultureMilestone(id: "explorer", emoji: "🗺️", title: "탐험가", desc: "5곳 이상 장소 방문", isUnlocked: distinctLocations >= 5),
-            CultureMilestone(id: "superfan", emoji: "💜", title: "슈퍼팬", desc: "같은 아티스트 3회 이상", isUnlocked: repeatArtist),
-            CultureMilestone(id: "critic", emoji: "📝", title: "평론가", desc: "10개 이상 별점 평가", isUnlocked: ratedEvents.count >= 10),
+            CultureMilestone(id: "first", emoji: "🎫", title: String(localized: "milestone.culture.first.title", defaultValue: "첫 관람"), desc: String(localized: "milestone.culture.first.desc", defaultValue: "첫 기록 달성"), isUnlocked: totalCompleted >= 1),
+            CultureMilestone(id: "ten", emoji: "⭐️", title: String(localized: "milestone.culture.ten.title", defaultValue: "10회 관람"), desc: String(localized: "milestone.culture.ten.desc", defaultValue: "10회 기록 달성"), isUnlocked: totalCompleted >= 10),
+            CultureMilestone(id: "twentyfive", emoji: "🌟", title: String(localized: "milestone.culture.twentyfive.title", defaultValue: "25회 관람"), desc: String(localized: "milestone.culture.twentyfive.desc", defaultValue: "25회 기록 달성"), isUnlocked: totalCompleted >= 25),
+            CultureMilestone(id: "fifty", emoji: "💫", title: String(localized: "milestone.culture.fifty.title", defaultValue: "50회 관람"), desc: String(localized: "milestone.culture.fifty.desc", defaultValue: "50회 기록 달성"), isUnlocked: totalCompleted >= 50),
+            CultureMilestone(id: "hundred", emoji: "🏆", title: String(localized: "milestone.culture.hundred.title", defaultValue: "100회 관람"), desc: String(localized: "milestone.culture.hundred.desc", defaultValue: "100회 기록 달성"), isUnlocked: totalCompleted >= 100),
+            CultureMilestone(id: "perfect", emoji: "💯", title: String(localized: "milestone.culture.perfect.title", defaultValue: "완벽한 공연"), desc: String(localized: "milestone.culture.perfect.desc", defaultValue: "별점 5점 기록"), isUnlocked: hasHighRating),
+            CultureMilestone(id: "diverse", emoji: "🎨", title: String(localized: "milestone.culture.diverse.title", defaultValue: "다양한 취향"), desc: String(localized: "milestone.culture.diverse.desc", defaultValue: "5명 이상 아티스트 관람"), isUnlocked: distinctArtists >= 5),
+            CultureMilestone(id: "photographer", emoji: "📸", title: String(localized: "milestone.culture.photographer.title", defaultValue: "포토그래퍼"), desc: String(localized: "milestone.culture.photographer.desc", defaultValue: "사진과 함께 기록"), isUnlocked: hasPhotos),
+            CultureMilestone(id: "collector", emoji: "🎟️", title: String(localized: "milestone.culture.collector.title", defaultValue: "티켓 수집가"), desc: String(localized: "milestone.culture.collector.desc", defaultValue: "QR/티켓 사진 첨부"), isUnlocked: hasQR),
+            CultureMilestone(id: "explorer", emoji: "🗺️", title: String(localized: "milestone.culture.explorer.title", defaultValue: "탐험가"), desc: String(localized: "milestone.culture.explorer.desc", defaultValue: "5곳 이상 장소 방문"), isUnlocked: distinctLocations >= 5),
+            CultureMilestone(id: "superfan", emoji: "💜", title: String(localized: "milestone.culture.superfan.title", defaultValue: "슈퍼팬"), desc: String(localized: "milestone.culture.superfan.desc", defaultValue: "같은 아티스트 3회 이상"), isUnlocked: repeatArtist),
+            CultureMilestone(id: "critic", emoji: "📝", title: String(localized: "milestone.culture.critic.title", defaultValue: "평론가"), desc: String(localized: "milestone.culture.critic.desc", defaultValue: "10개 이상 별점 평가"), isUnlocked: ratedEvents.count >= 10),
         ]
     }
     
@@ -115,9 +135,9 @@ struct CultureStatsView: View {
             LazyVStack(spacing: 20) {
                 if totalCompleted == 0 {
                     ContentUnavailableView(
-                        "완료된 기록이 없습니다",
+                        String(localized: "cultureStats.empty.noCompleted", defaultValue: "완료된 기록이 없습니다"),
                         systemImage: "chart.bar",
-                        description: Text("관람을 완료로 기록하면 통계가 나타납니다.")
+                        description: Text(String(localized: "cultureStats.empty.completeVisits", defaultValue: "관람을 완료로 기록하면 통계가 나타납니다."))
                     )
                 } else {
                     cultureFanCard
@@ -130,7 +150,7 @@ struct CultureStatsView: View {
             }
             .padding()
         }
-        .navigationTitle("관람 통계")
+        .navigationTitle(String(localized: "cultureStats.navigation.title", defaultValue: "관람 통계"))
         .background(Color(uiColor: .systemGroupedBackground))
         .sheet(isPresented: $showingSharePreviewSheet) {
             SharePreviewView { style in
@@ -158,7 +178,7 @@ extension CultureStatsView {
             // 평균 별점 원형 프로그레스
             ZStack {
                 Circle()
-                    .stroke(Color.secondary.opacity(0.12), lineWidth: 10)
+                    .stroke(GroupedCardChrome.winRateRingTrackColorWide(colorScheme: colorScheme), lineWidth: 10)
                 Circle()
                     .trim(from: 0, to: averageRating / 5.0)
                     .stroke(Color.yellow, style: StrokeStyle(lineWidth: 10, lineCap: .round))
@@ -169,17 +189,17 @@ extension CultureStatsView {
                         Image(systemName: "star.fill")
                             .foregroundStyle(.yellow)
                             .font(.caption)
-                        Text("\(averageRating, format: .number.precision(.fractionLength(1)))")
+                        Text(averageRating, format: .number.precision(.fractionLength(1)))
                             .font(.system(size: 28, weight: .heavy, design: .rounded))
                     }
-                    Text("평균 별점")
+                    Text(String(localized: "cultureStats.avgRating", defaultValue: "평균 별점"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             .frame(width: 110, height: 110)
             
-            Text("\(totalCompleted)회 관람")
+            Text(String(format: String(localized: "culture.stats.visitsCount", defaultValue: "%lld회 관람"), locale: .autoupdatingCurrent, Int64(totalCompleted)))
                 .font(.caption.bold())
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
@@ -189,9 +209,10 @@ extension CultureStatsView {
         .frame(maxWidth: .infinity)
         .padding(24)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 20)
     }
 }
 
@@ -200,10 +221,10 @@ extension CultureStatsView {
     private var ratingDistributionCard: some View {
         VStack(spacing: 16) {
             HStack {
-                Label("별점 분포", systemImage: "star.fill")
+                Label(String(localized: "cultureStats.starDistribution", defaultValue: "별점 분포"), systemImage: "star.fill")
                     .font(.subheadline.bold())
                 Spacer()
-                Text("\(ratedEvents.count)개 평가")
+                Text(String(format: String(localized: "cultureStats.ratedCount", defaultValue: "%lld개 평가"), locale: .autoupdatingCurrent, Int64(ratedEvents.count)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -214,7 +235,7 @@ extension CultureStatsView {
                 
                 HStack(spacing: 8) {
                     HStack(spacing: 2) {
-                        Text("\(star)")
+                        Text(verbatim: "\(star)")
                             .font(.caption.bold())
                             .frame(width: 12)
                         Image(systemName: "star.fill")
@@ -229,7 +250,7 @@ extension CultureStatsView {
                     }
                     .frame(height: 16)
                     
-                    Text("\(count)")
+                    Text(verbatim: "\(count)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(width: 24, alignment: .trailing)
@@ -238,9 +259,10 @@ extension CultureStatsView {
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 20)
     }
     
     private func starColor(for star: Int) -> Color {
@@ -259,13 +281,13 @@ extension CultureStatsView {
     private var artistSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("아티스트별 관람", systemImage: "person.2.fill")
+                Label(String(localized: "cultureStats.artistSection", defaultValue: "아티스트별 관람"), systemImage: "person.2.fill")
                     .font(.subheadline.bold())
                 Spacer()
             }
             
             if artistRecords.isEmpty {
-                Text("아티스트 정보가 있는 기록이 없습니다.")
+                Text(String(localized: "cultureStats.noArtistData", defaultValue: "아티스트 정보가 있는 기록이 없습니다."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
@@ -280,7 +302,7 @@ extension CultureStatsView {
                         Spacer()
                         
                         HStack(spacing: 8) {
-                            Text("\(record.count)회")
+                            Text(String(format: String(localized: "cultureStats.artistVisitCount", defaultValue: "%lld회"), locale: .autoupdatingCurrent, Int64(record.count)))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             
@@ -289,7 +311,7 @@ extension CultureStatsView {
                                     Image(systemName: "star.fill")
                                         .font(.system(size: 10))
                                         .foregroundStyle(.yellow)
-                                    Text("\(record.averageRating, format: .number.precision(.fractionLength(1)))")
+                                    Text(record.averageRating, format: .number.precision(.fractionLength(1)))
                                         .font(.caption.bold())
                                 }
                             }
@@ -305,9 +327,10 @@ extension CultureStatsView {
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 20)
     }
 }
 
@@ -318,10 +341,10 @@ extension CultureStatsView {
         
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("월별 기록", systemImage: "calendar.badge.clock")
+                Label(String(localized: "stats.monthly.title", defaultValue: "월별 기록"), systemImage: "calendar.badge.clock")
                     .font(.subheadline.bold())
                 Spacer()
-                Text("최근 12개월")
+                Text(String(localized: "stats.months.recent", defaultValue: "최근 12개월"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -334,13 +357,13 @@ extension CultureStatsView {
                             .frame(height: 40)
                             .overlay {
                                 if data.count > 0 {
-                                    Text("\(data.count)")
+                                    Text(verbatim: "\(data.count)")
                                         .font(.caption2.bold())
                                         .foregroundStyle(.white)
                                 }
                             }
                         
-                        Text("\(data.month)월")
+                        Text(String(format: String(localized: "cultureStats.monthSuffix", defaultValue: "%lld월"), locale: .autoupdatingCurrent, Int64(data.month)))
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
@@ -349,7 +372,7 @@ extension CultureStatsView {
             
             HStack(spacing: 12) {
                 Spacer()
-                Text("적음")
+                Text(String(localized: "stats.heatmap.less", defaultValue: "적음"))
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                 HStack(spacing: 3) {
@@ -359,16 +382,17 @@ extension CultureStatsView {
                             .frame(width: 12, height: 12)
                     }
                 }
-                Text("많음")
+                Text(String(localized: "stats.heatmap.more", defaultValue: "많음"))
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 20)
     }
     
     private func heatmapColor(count: Int, max: Int) -> Color {
@@ -383,10 +407,10 @@ extension CultureStatsView {
     private var milestoneSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("관람 마일스톤", systemImage: "trophy.fill")
+                Label(String(localized: "cultureStats.milestone.section", defaultValue: "관람 마일스톤"), systemImage: "trophy.fill")
                     .font(.subheadline.bold())
                 Spacer()
-                Text("\(unlockedMilestones.count)/\(milestones.count)")
+                Text(verbatim: "\(unlockedMilestones.count)/\(milestones.count)")
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
             }
@@ -431,9 +455,10 @@ extension CultureStatsView {
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 20)
     }
 }
 
@@ -446,7 +471,7 @@ extension CultureStatsView {
             HStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.body.weight(.semibold))
-                Text("관람 리포트 공유하기")
+                Text(String(localized: "culture.report.share", defaultValue: "관람 리포트 공유하기"))
                     .font(.body.weight(.semibold))
             }
             .foregroundStyle(.white)
@@ -550,7 +575,7 @@ private struct CultureReportContent: View {
         VStack(spacing: 28) {
             // 헤더
             VStack(spacing: 8) {
-                Text("나의 관람 리포트")
+                Text(String(localized: "culture.report.imageTitle", defaultValue: "나의 관람 리포트"))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(textSub)
                     .tracking(2)
@@ -574,7 +599,7 @@ private struct CultureReportContent: View {
                 }
                 
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text("\(averageRating, format: .number.precision(.fractionLength(1)))")
+                    Text(averageRating, format: .number.precision(.fractionLength(1)))
                         .font(.system(size: 60, weight: .heavy, design: .rounded))
                         .foregroundStyle(textMain)
                     Text(" / 5")
@@ -582,13 +607,13 @@ private struct CultureReportContent: View {
                         .foregroundStyle(ratingSubColor)
                 }
                 
-                Text("평균 별점")
+                Text(String(localized: "cultureStats.avgRating", defaultValue: "평균 별점"))
                     .font(.subheadline)
                     .foregroundStyle(textSub)
             }
             
             // 칭호
-            Text("\(cultureEmoji) \(cultureTitle)")
+            Text(verbatim: "\(cultureEmoji) \(cultureTitle)")
                 .font(.title3.bold())
                 .foregroundStyle(titleColor)
             
@@ -600,10 +625,10 @@ private struct CultureReportContent: View {
             
             // 관람 횟수
             VStack(spacing: 4) {
-                Text("\(totalEvents)")
+                Text(verbatim: "\(totalEvents)")
                     .font(.system(size: 40, weight: .heavy, design: .rounded))
                     .foregroundStyle(textMain)
-                Text("회 관람")
+                Text(String(localized: "culture.report.visitsSuffix", defaultValue: "회 관람"))
                     .font(.subheadline)
                     .foregroundStyle(textSub)
             }
@@ -611,13 +636,21 @@ private struct CultureReportContent: View {
             // 최다 관람 아티스트
             if let artist = topArtistName, let count = topArtistCount {
                 VStack(spacing: 6) {
-                    Text("최다 관람")
+                    Text(String(localized: "culture.report.mostVisited", defaultValue: "최다 관람"))
                         .font(.caption)
                         .foregroundStyle(textDim)
                     Text(artist)
                         .font(.headline)
                         .foregroundStyle(textMain)
-                    Text("\(count)회")
+                    Text(verbatim: String(
+                        format: String(
+                            localized: String.LocalizationValue("culture.report.topArtistVisitCountFormat"),
+                            bundle: .main,
+                            locale: .current
+                        ),
+                        locale: .current,
+                        Int64(count)
+                    ))
                         .font(.caption)
                         .foregroundStyle(textSub)
                 }
@@ -632,7 +665,7 @@ private struct CultureReportContent: View {
             // 달성 뱃지
             if !unlockedEmojis.isEmpty {
                 VStack(spacing: 10) {
-                    Text("달성 뱃지")
+                    Text(String(localized: "stats.badges.unlocked", defaultValue: "달성 뱃지"))
                         .font(.caption)
                         .foregroundStyle(textDim)
                     Text(unlockedEmojis)
@@ -656,14 +689,14 @@ private struct CultureReportContent: View {
 
 // MARK: - 데이터 모델
 private struct ArtistRecord: Identifiable {
-    let id = UUID()
+    var id: String { name }
     let name: String
     let count: Int
     let averageRating: Double
 }
 
 private struct CultureMonthlyRecord: Identifiable {
-    let id = UUID()
+    var id: Int { month }
     let month: Int
     let count: Int
 }

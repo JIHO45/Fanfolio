@@ -41,6 +41,7 @@ struct PlayerInfo: Identifiable, Codable {
 
 // MARK: - API-Sports 팀 로스터 응답
 
+/// 축구·미식축구: /players/squads → response[].team + response[].players[]
 struct APISportsSquadResponse: Codable {
     let response: [APISportsSquadItem]
 }
@@ -57,6 +58,21 @@ struct APISportsSquadPlayer: Codable {
     let number: Int?
     let position: String?
     let photo: String?
+}
+
+/// 야구(MLB·KBO)·농구: /players?team=X&season=Y → response[] flat 리스트
+struct APISportsPlayersResponse: Codable {
+    let response: [APISportsPlayerItem]
+}
+
+struct APISportsPlayerItem: Codable {
+    let id: Int
+    let name: String
+    let age: Int?
+    let number: String?  // 야구는 String으로 내려옴
+    let position: String?
+    let photo: String?
+    let nationality: String?
 }
 
 // MARK: - 포지션 그룹 (종목별 섹션 구분용)

@@ -239,6 +239,24 @@ final class RoadTripHighlightReelController {
 
             if jumpSummary { break }
 
+            // 탭으로 구간을 건너뛰었을 때, 카메라가 중간 지점에 멈추는 문제 수정.
+            // 도착지 기준 chase viewport로 부드럽게 이동시킨 뒤 legPause로 전환.
+            if exitedFlyEarly {
+                if let arrivalVP = Self.chaseViewport(
+                    segmentCoords: seg.coordinates,
+                    progress: 1.0,
+                    legKm: legKm,
+                    layoutMetrics: layoutMetrics,
+                    smoothedBearing: &chaseSmoothedBearing
+                ) {
+                    withViewportAnimation(.easeInOut(duration: 0.42)) {
+                        updateCamera(arrivalVP)
+                    }
+                    try? await Task.sleep(nanoseconds: 420_000_000)
+                    if Task.isCancelled { return }
+                }
+            }
+
             phase = .legPause
             pinCalloutSegmentIndex = i
             pinCalloutShowsDeparture = false

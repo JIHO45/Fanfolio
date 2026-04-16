@@ -21,10 +21,14 @@ struct AddFolderView: View {
     @State private var sportType: SportType
     @State private var selectedLeague: LeagueInfo?
     @State private var selectedTeam: ESPNTeam?
+    @State private var selectedKBOTeam: KBOTeamInfo?
+    @State private var kboTeams: [KBOTeamInfo] = []
+    @State private var isLoadingKBOTeams = false
     @State private var teamNickname: String
     @State private var matchHasOpponent: Bool
-    
+
     private var isEditing: Bool { editingFolder != nil }
+    private var isKBOLeague: Bool { selectedLeague?.code == "KBO" }
 
     private var folderNamePlaceholder: String {
         if !sportType.requiresTeamSelection {
@@ -53,7 +57,7 @@ struct AddFolderView: View {
 
     private var leagues: [LeagueInfo] { sportType.supportedLeagues }
     private var teams: [ESPNTeam] {
-        guard let league = selectedLeague else { return [] }
+        guard let league = selectedLeague, league.code != "KBO" else { return [] }
         return ESPNTeamsLoader.teams(for: league.code)
     }
     
@@ -191,6 +195,7 @@ struct AddFolderView: View {
                         }
                     }
                     
+                    // ESPN 리그 팀 그리드 (KBO 제외)
                     if sportType.requiresTeamSelection, selectedLeague != nil, !teams.isEmpty {
                         Section {
                             LazyVGrid(
@@ -201,6 +206,7 @@ struct AddFolderView: View {
                                     Button {
                                         name = team.name_en
                                         selectedTeam = team
+                                        selectedKBOTeam = nil
                                     } label: {
                                         VStack(spacing: 6) {
                                             ZStack {
@@ -210,7 +216,7 @@ struct AddFolderView: View {
                                                     endPoint: .bottomTrailing
                                                 )
                                                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                                                
+
                                                 KFImage.url(URL(string: team.logo_url))
                                                     .placeholder { ProgressView().tint(.white) }
                                                     .onFailureView {
@@ -223,7 +229,7 @@ struct AddFolderView: View {
                                                     .padding(8)
                                             }
                                             .frame(width: 56, height: 56)
-                                            
+
                                             Text(team.name_en)
                                                 .font(.system(size: 9))
                                                 .lineLimit(2)
@@ -249,8 +255,108 @@ struct AddFolderView: View {
                             Text(String(localized: "sports.folder.section.team", defaultValue: "팀 선택"))
                         }
                     }
-                    
-                    if sportType.requiresTeamSelection, selectedTeam != nil {
+
+                    // KBO 팀 그리드 (Firestore 동적 로드)
+                    if isKBOLeague {
+                        Section {
+                            if isLoadingKBOTeams {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                        .padding(.vertical, 20)
+                                    Spacer()
+                                }
+                            } else if kboTeams.isEmpty {
+                                VStack(spacing: 10) {
+                                    Text(String(localized: "sports.folder.kbo.noTeams",
+                                                defaultValue: "KBO 팀 데이터가 없습니다.\n시즌 전이거나 Firebase 동기화가 완료되지 않았습니다."))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.center)
+                                    Button {
+                                        Task {
+                                            isLoadingKBOTeams = true
+                                            kboTeams = (try? await KBOFirestoreService.shared.fetchKBOTeams(forceRefresh: true)) ?? []
+                                            isLoadingKBOTeams = false
+                                        }
+                                    } label: {
+                                        Label(String(localized: "common.action.retry", defaultValue: "다시 시도"),
+                                              systemImage: "arrow.clockwise")
+                                            .font(.caption.bold())
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
+                                .padding(.vertical, 12)
+                            } else {
+                                LazyVGrid(
+                                    columns: Array(repeating: GridItem(.flexible()), count: 4),
+                                    spacing: 16
+                                ) {
+                                    ForEach(kboTeams) { team in
+                                        Button {
+                                            name = team.name
+                                            selectedKBOTeam = team
+                                            selectedTeam = nil
+                                        } label: {
+                                            VStack(spacing: 6) {
+                                                ZStack {
+                                                    Color.gray.opacity(0.12)
+                                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                                                    if let assetName = KBOTeamLogoAsset.imageName(forKBO: team) {
+                                                        Image(assetName)
+                                                            .resizable()
+                                                            .scaledToFit()
+                                                            .padding(8)
+                                                    } else {
+                                                        KFImage.url(team.logoURL.flatMap(URL.init))
+                                                            .placeholder { ProgressView() }
+                                                            .onFailureView {
+                                                                Image(systemName: "baseball")
+                                                                    .font(.title2)
+                                                                    .foregroundStyle(.secondary)
+                                                            }
+                                                            .resizable()
+                                                            .scaledToFit()
+                                                            .padding(8)
+                                                    }
+                                                }
+                                                .frame(width: 56, height: 56)
+
+                                                Text(KBOTeamLogoAsset.uiDisplayName(forKBOCandidate: team.name))
+                                                    .font(.system(size: 9))
+                                                    .lineLimit(2)
+                                                    .multilineTextAlignment(.center)
+                                                    .foregroundStyle(.primary)
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .padding(8)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .fill(selectedKBOTeam?.id == team.id ? Color.blue.opacity(0.1) : Color.clear)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 12)
+                                                            .strokeBorder(selectedKBOTeam?.id == team.id ? Color.blue : Color.clear, lineWidth: 2)
+                                                    )
+                                            )
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                            }
+                        } header: {
+                            Text(String(localized: "sports.folder.section.team", defaultValue: "팀 선택"))
+                        }
+                        .task {
+                            guard kboTeams.isEmpty else { return }
+                            isLoadingKBOTeams = true
+                            kboTeams = (try? await KBOFirestoreService.shared.fetchKBOTeams()) ?? []
+                            isLoadingKBOTeams = false
+                        }
+                    }
+
+                    if sportType.requiresTeamSelection, selectedTeam != nil || selectedKBOTeam != nil {
                         Section {
                             TextField(String(localized: "sports.folder.nickname.placeholder", defaultValue: "예: 49ers, 닌자스"), text: $teamNickname)
                         } header: {
@@ -303,42 +409,44 @@ struct AddFolderView: View {
             orderIndex: nextOrderIndex,
             matchHasOpponent: hasOpponent
         )
-        if let team = selectedTeam {
-            folder.leagueCode = team.league
-            folder.teamLogoUrl = team.logo_url
-            folder.teamColor = team.color
-            folder.teamAlternateColor = team.alternate_color
-        } else if let league = selectedLeague {
-            folder.leagueCode = league.code
-        }
+        applyTeamToFolder(folder)
         let nick = teamNickname.trimmingCharacters(in: .whitespaces)
         folder.teamNickname = nick.isEmpty ? nil : nick
         modelContext.insert(folder)
+        try? modelContext.save()
         dismiss()
     }
-    
+
     private func updateFolder() {
         guard let folder = editingFolder else { return }
         folder.name = name.trimmingCharacters(in: .whitespaces)
         folder.sportType = sportType
-        if let team = selectedTeam {
-            folder.leagueCode = team.league
-            folder.teamLogoUrl = team.logo_url
-            folder.teamColor = team.color
-            folder.teamAlternateColor = team.alternate_color
-        } else {
-            folder.teamLogoUrl = nil
-            folder.teamColor = nil
-            folder.teamAlternateColor = nil
-            if let league = selectedLeague {
-                folder.leagueCode = league.code
-            } else {
-                folder.leagueCode = nil
-            }
-        }
+        applyTeamToFolder(folder)
         let nick = teamNickname.trimmingCharacters(in: .whitespaces)
         folder.teamNickname = nick.isEmpty ? nil : nick
+        try? modelContext.save()
         dismiss()
+    }
+
+    /// 선택된 팀(ESPN 또는 KBO Firestore)을 폴더에 적용합니다.
+    private func applyTeamToFolder(_ folder: SportsFanFolder) {
+        if let kbo = selectedKBOTeam {
+            // KBO: Firestore에서 가져온 팀 — ID·로고 즉시 반영
+            folder.leagueCode     = "KBO"
+            folder.apiSportsTeamID = kbo.id
+            folder.teamLogoUrl    = kbo.logoURL
+            folder.teamColor      = nil
+            folder.teamAlternateColor = nil
+        } else if let espn = selectedTeam {
+            // ESPN 리그
+            folder.leagueCode         = espn.league
+            folder.teamLogoUrl        = espn.logo_url
+            folder.teamColor          = espn.color
+            folder.teamAlternateColor = espn.alternate_color
+            folder.apiSportsTeamID    = nil
+        } else if let league = selectedLeague {
+            folder.leagueCode = league.code
+        }
     }
 }
 

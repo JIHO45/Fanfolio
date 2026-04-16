@@ -5,9 +5,12 @@
 //  팀 정보 상세 페이지 - 팀 스탯, 최애 선수, 전체 선수단을 표시합니다.
 
 import SwiftUI
+import SwiftData
 
 struct TeamInfoDetailView: View {
     let folder: SportsFanFolder
+
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var squadPlayers: [PlayerInfo] = []
     @State private var isLoadingSquad = false
@@ -35,6 +38,15 @@ struct TeamInfoDetailView: View {
         return squadPlayers.filter { !favoriteIDs.contains("\($0.id)") }
     }
 
+    /// ESPN 순위 API 지원 리그 또는 KBO (Firestore 집계)
+    private var showsLeagueStandingsLink: Bool {
+        guard folder.sportType != .other,
+              let code = folder.leagueCode,
+              !code.isEmpty
+        else { return false }
+        return code == "KBO" || ESPNPlayerService.shared.supportsLiveScoreboard(code)
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -43,6 +55,12 @@ struct TeamInfoDetailView: View {
                 if let r = teamStatsResult {
                     teamStatsCard(r)
                 }
+                if showsLeagueStandingsLink {
+                    NavigationLink(destination: LeagueStandingsView(folder: folder)) {
+                        leagueStandingsLinkRow
+                    }
+                    .buttonStyle(.plain)
+                }
                 if !favPlayers.isEmpty {
                     favoritesCard
                 }
@@ -50,10 +68,10 @@ struct TeamInfoDetailView: View {
             }
             .padding()
         }
-        .navigationTitle("팀 정보")
+        .navigationTitle(String(localized: "teamInfo.navTitle", defaultValue: "팀 정보"))
         .navigationBarTitleDisplayMode(.inline)
         .background(Color(uiColor: .systemGroupedBackground))
-        .task(id: folder.fanfolioFolderTaskToken) {
+        .task(id: "\(folder.persistentModelID)\u{1f}\(folder.leagueCode ?? "")\u{1f}\(folder.name)\u{1f}\(folder.apiSportsTeamID ?? 0)") {
             squadPlayers = []
             await loadSquadIfNeeded()
         }
@@ -85,17 +103,48 @@ struct TeamInfoDetailView: View {
     }
 }
 
+// MARK: - 리그 순위
+
+extension TeamInfoDetailView {
+    private var leagueStandingsLinkRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "list.number")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 36, height: 36)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.12)))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "standings.title", defaultValue: "리그 순위"))
+                    .font(.subheadline.bold())
+                Text(String(localized: "standings.subtitle", defaultValue: "현재 시즌 순위표"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color(uiColor: .secondarySystemBackground)))
+        .groupedCardOutline(cornerRadius: 20)
+    }
+}
+
 // MARK: - 팀 스탯 카드
 
 extension TeamInfoDetailView {
     private func teamStatsCard(_ r: FanStatsResult) -> some View {
-        let rateColor: Color = r.winRate >= 50 ? .green : (r.winRate >= 30 ? .orange : .red)
+        let rateColor: Color = WinRateTierPalette.accentColor(
+            forPercent: r.winRate,
+            hasCompletedGames: r.totalCompleted > 0
+        )
         return VStack(spacing: 16) {
             HStack {
-                Label("팀 스탯", systemImage: "chart.bar.fill")
+                Label(String(localized: "teamInfo.header.stats", defaultValue: "팀 스탯"), systemImage: "chart.bar.fill")
                     .font(.subheadline.bold())
                 Spacer()
-                Text("\(r.totalCompleted)경기")
+                Text(String(format: String(localized: "teamInfo.gamesShort", defaultValue: "%lld경기"), locale: .autoupdatingCurrent, Int64(r.totalCompleted)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -103,16 +152,16 @@ extension TeamInfoDetailView {
             HStack(spacing: 20) {
                 ZStack {
                     Circle()
-                        .stroke(Color.secondary.opacity(0.12), lineWidth: 10)
+                        .stroke(GroupedCardChrome.winRateRingTrackColorWide(colorScheme: colorScheme), lineWidth: 10)
                     Circle()
                         .trim(from: 0, to: r.winRate / 100)
                         .stroke(rateColor, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                         .animation(.easeOut(duration: 0.8), value: r.winRate)
                     VStack(spacing: 2) {
-                        Text("\(Int(r.winRate))%")
+                        Text(verbatim: "\(Int(r.winRate))%")
                             .font(.system(size: 22, weight: .heavy, design: .rounded))
-                        Text("승률")
+                        Text(String(localized: "teamInfo.winRate", defaultValue: "승률"))
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
@@ -121,9 +170,9 @@ extension TeamInfoDetailView {
 
                 VStack(spacing: 12) {
                     HStack(spacing: 0) {
-                        statItem(value: "\(r.wins)",   label: "승", color: .green)
-                        statItem(value: "\(r.losses)", label: "패", color: .red)
-                        statItem(value: "\(r.draws)",  label: "무", color: .orange)
+                        statItem(value: "\(r.wins)",   label: String(localized: "sports.stats.label.win", defaultValue: "승"), color: .green)
+                        statItem(value: "\(r.losses)", label: String(localized: "sports.stats.label.loss", defaultValue: "패"), color: .red)
+                        statItem(value: "\(r.draws)",  label: String(localized: "sports.stats.label.draw", defaultValue: "무"), color: .orange)
                     }
                     GeometryReader { geo in
                         let total = CGFloat(max(r.totalCompleted, 1))
@@ -149,11 +198,11 @@ extension TeamInfoDetailView {
 
             HStack(spacing: 0) {
                 VStack(spacing: 4) {
-                    Text("홈")
+                    Text(String(localized: "teamInfo.home", defaultValue: "홈"))
                         .font(.caption.bold()).foregroundStyle(.secondary)
-                    Text("\(r.homeWins)승 \(r.homeLosses)패")
+                    Text(String(format: String(localized: "teamInfo.record.wl", defaultValue: "%1$lld승 %2$lld패"), locale: .autoupdatingCurrent, r.homeWins, r.homeLosses))
                         .font(.subheadline.weight(.semibold))
-                    Text("\(r.homeWins + r.homeLosses + r.homeDraws)경기")
+                    Text(String(format: String(localized: "teamInfo.gamesShort", defaultValue: "%lld경기"), locale: .autoupdatingCurrent, Int64(r.homeWins + r.homeLosses + r.homeDraws)))
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity)
@@ -161,11 +210,11 @@ extension TeamInfoDetailView {
                 Divider().frame(height: 44).padding(.horizontal, 8)
 
                 VStack(spacing: 4) {
-                    Text("원정")
+                    Text(String(localized: "teamInfo.away", defaultValue: "원정"))
                         .font(.caption.bold()).foregroundStyle(.secondary)
-                    Text("\(r.awayWins)승 \(r.awayLosses)패")
+                    Text(String(format: String(localized: "teamInfo.record.wl", defaultValue: "%1$lld승 %2$lld패"), locale: .autoupdatingCurrent, r.awayWins, r.awayLosses))
                         .font(.subheadline.weight(.semibold))
-                    Text("\(r.awayWins + r.awayLosses + r.awayDraws)경기")
+                    Text(String(format: String(localized: "teamInfo.gamesShort", defaultValue: "%lld경기"), locale: .autoupdatingCurrent, Int64(r.awayWins + r.awayLosses + r.awayDraws)))
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity)
@@ -173,9 +222,9 @@ extension TeamInfoDetailView {
                 if let streak = r.currentStreak {
                     Divider().frame(height: 44).padding(.horizontal, 8)
                     VStack(spacing: 4) {
-                        Text(streak.type == .win ? "연승" : "연패")
+                        Text(streak.type == .win ? String(localized: "teamInfo.streak.win", defaultValue: "연승") : String(localized: "teamInfo.streak.loss", defaultValue: "연패"))
                             .font(.caption.bold()).foregroundStyle(.secondary)
-                        Text("\(streak.count)연속")
+                        Text(String(format: String(localized: "teamInfo.streak.count", defaultValue: "%lld연속"), locale: .autoupdatingCurrent, Int64(streak.count)))
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(streak.type.color)
                         Text(streak.type == .win ? "🔥" : "💧")
@@ -186,16 +235,17 @@ extension TeamInfoDetailView {
             }
         }
         .padding(20)
-        .background(RoundedRectangle(cornerRadius: 20).fill(Color(uiColor: .secondarySystemBackground)))
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color(uiColor: .secondarySystemBackground)))
+        .groupedCardOutline(cornerRadius: 20)
     }
 
-    private func statItem(value: String, label: LocalizedStringKey, color: Color) -> some View {
+    private func statItem(value: String, label: String, color: Color) -> some View {
         VStack(spacing: 3) {
-            Text(value)
+            Text(verbatim: value)
                 .font(.system(size: 24, weight: .heavy, design: .rounded))
             HStack(spacing: 3) {
                 Circle().fill(color).frame(width: 6, height: 6)
-                Text(label)
+                Text(verbatim: label)
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(.secondary)
             }
@@ -210,10 +260,10 @@ extension TeamInfoDetailView {
     private var favoritesCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("최애 선수", systemImage: "heart.fill")
+                Label(String(localized: "teamInfo.favoritePlayers", defaultValue: "최애 선수"), systemImage: "heart.fill")
                     .font(.subheadline.bold())
                 Spacer()
-                Text("\(favPlayers.count)명")
+                Text(String(format: String(localized: "teamInfo.favoriteCount", defaultValue: "%lld명"), locale: .autoupdatingCurrent, Int64(favPlayers.count)))
                     .font(.caption.bold())
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8).padding(.vertical, 3)
@@ -266,7 +316,7 @@ extension TeamInfoDetailView {
                     Image(systemName: "heart.fill").font(.caption2).foregroundStyle(.red)
                     Text(player.name).font(.subheadline.weight(.bold)).lineLimit(1)
                     if let num = player.number {
-                        Text("#\(num)")
+                        Text(verbatim: "#\(num)")
                             .font(.caption2.bold()).foregroundStyle(.white)
                             .padding(.horizontal, 5).padding(.vertical, 2)
                             .background(Capsule().fill(teamColor.opacity(0.8)))
@@ -292,7 +342,7 @@ extension TeamInfoDetailView {
     private var squadCard: some View {
         if isLoadingSquad {
             VStack(alignment: .leading, spacing: 14) {
-                Label("팀 선수단", systemImage: "person.3.fill")
+                Label(String(localized: "teamInfo.roster", defaultValue: "팀 선수단"), systemImage: "person.3.fill")
                     .font(.subheadline.bold())
 
                 ForEach(0..<3, id: \.self) { _ in
@@ -300,17 +350,18 @@ extension TeamInfoDetailView {
                 }
             }
             .padding(20)
-            .background(RoundedRectangle(cornerRadius: 20).fill(Color(uiColor: .secondarySystemBackground)))
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color(uiColor: .secondarySystemBackground)))
+            .groupedCardOutline(cornerRadius: 20)
         } else if squadPlayers.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
-                Label("팀 선수단", systemImage: "person.3.fill")
+                Label(String(localized: "teamInfo.roster", defaultValue: "팀 선수단"), systemImage: "person.3.fill")
                     .font(.subheadline.bold())
 
                 VStack(spacing: 8) {
                     Image(systemName: "person.slash")
                         .font(.title2)
                         .foregroundStyle(.secondary)
-                    Text("선수단 정보를 찾을 수 없습니다")
+                    Text(String(localized: "teamInfo.rosterUnavailable", defaultValue: "선수단 정보를 찾을 수 없습니다"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -318,10 +369,11 @@ extension TeamInfoDetailView {
                 .padding(.vertical, 16)
             }
             .padding(20)
-            .background(RoundedRectangle(cornerRadius: 20).fill(Color(uiColor: .secondarySystemBackground)))
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color(uiColor: .secondarySystemBackground)))
+            .groupedCardOutline(cornerRadius: 20)
         } else {
             GroupedPlayerListCard(
-                title: "팀 선수단",
+                title: String(localized: "teamInfo.roster", defaultValue: "팀 선수단"),
                 players: nonFavoriteSquadPlayers,
                 sportType: folder.sportType,
                 teamColorHex: folder.teamColor,

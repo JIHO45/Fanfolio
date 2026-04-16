@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		D86F7BE12F6BCC8200260107 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = D86F7BE02F6BCC8200260107 /* Kingfisher */; };
 		D87D6D3F2F7A395400D7A894 /* MapboxMaps in Frameworks */ = {isa = PBXBuildFile; productRef = D87D6D3E2F7A395400D7A894 /* MapboxMaps */; };
+		D8BC30772F8CD8FE00CE3270 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = D8BC30762F8CD8FE00CE3270 /* FirebaseFirestore */; };
 		D8D1BFE12F42DB8D008DE051 /* espn_teams_master.json in Resources */ = {isa = PBXBuildFile; fileRef = D8D1BFE02F42DB8D008DE051 /* espn_teams_master.json */; };
 /* End PBXBuildFile section */
 
@@ -75,6 +76,7 @@
 			files = (
 				D87D6D3F2F7A395400D7A894 /* MapboxMaps in Frameworks */,
 				D86F7BE12F6BCC8200260107 /* Kingfisher in Frameworks */,
+				D8BC30772F8CD8FE00CE3270 /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,6 +141,7 @@
 			packageProductDependencies = (
 				D86F7BE02F6BCC8200260107 /* Kingfisher */,
 				D87D6D3E2F7A395400D7A894 /* MapboxMaps */,
+				D8BC30762F8CD8FE00CE3270 /* FirebaseFirestore */,
 			);
 			productName = Fanfolio;
 			productReference = D84DF8A92EE9A66200205AA9 /* Fanfolio.app */;
@@ -218,6 +221,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				ko,
 				Base,
 			);
 			mainGroup = D84DF8A02EE9A66200205AA9;
@@ -225,6 +229,7 @@
 			packageReferences = (
 				D86F7BDF2F6BCC8200260107 /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				D87D6D3D2F7A395400D7A894 /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */,
+				D8BC30752F8CD8FE00CE3270 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D84DF8AA2EE9A66200205AA9 /* Products */;
@@ -640,6 +645,14 @@
 				minimumVersion = 11.0.0;
 			};
 		};
+		D8BC30752F8CD8FE00CE3270 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.12.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -652,6 +665,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D87D6D3D2F7A395400D7A894 /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */;
 			productName = MapboxMaps;
+		};
+		D8BC30762F8CD8FE00CE3270 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D8BC30752F8CD8FE00CE3270 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

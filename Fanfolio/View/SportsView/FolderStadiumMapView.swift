@@ -42,6 +42,8 @@ struct FolderStadiumMapView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.presentPaywall) private var presentPaywall
+    @Environment(StoreSubscriptionManager.self) private var storeSubscription
 
     @State private var mapModel = FolderStadiumMapViewModel()
     @State private var viewport: Viewport = .styleDefault
@@ -58,7 +60,6 @@ struct FolderStadiumMapView: View {
     @State private var roadTripActive = false
     @State private var roadTripReelPreparing = false
     @State private var highlightReel = RoadTripHighlightReelController()
-    @State private var roadTripProPrompt: RoadTripProPrompt?
 
     @State private var toastMessage: String?
     @State private var toastTask: Task<Void, Never>?
@@ -69,7 +70,13 @@ struct FolderStadiumMapView: View {
     /// `flyProgress`마다 뷰가 갱신될 때 완료 궤적 배열을 다시 만들지 않도록 캐시(맵 전체 깜빡임 완화).
     @State private var roadTripCachedCompletedPolylines: [RoadTripPolylineDrawSegment] = []
 
-    private var isPro: Bool { FanfolioEntitlements.isPro }
+    /// 스타일 로드 완료 후 지연 렌더링되는 핀 그룹 — 초기 로딩 부하 분리용.
+    @State private var visiblePinGroups: [StadiumMapVenuePinGroup] = []
+
+    /// Summary 단계에서 지도 스냅샷 캡처 — `MapReader` proxy가 살아 있는 동안만 유효.
+    @State private var captureMapSnapshot: (() -> UIImage?)?
+
+    private var isPro: Bool { storeSubscription.isPro }
 
     /// iPad·가로 regular에서 추적 샷을 약간 넓게, 로고 여백 확보.
     private var roadTripLayoutMetrics: RoadTripLayoutMetrics {
@@ -94,24 +101,6 @@ struct FolderStadiumMapView: View {
     /// 런타임 GeoJSON 라인 소스만 맞추기 위한 시그니처(`flyProgress` 포함 → 비행 중 매 스텝 동기화, 단 **폴리라인 어노테이션 트리는 재생성하지 않음**).
     private var roadTripGeoJSONSyncSignature: String {
         "\(isPro)|\(roadTripActive)|\(roadTripPolylineCompletedCacheKey)|\(highlightReel.segmentIndex)|\(String(describing: highlightReel.phase))|\(highlightReel.flyProgress)"
-    }
-
-    /// PRO 원정 궤적용 결제 유도 알림.
-    private enum RoadTripProPrompt: Int, Identifiable {
-        case trajectory
-
-        var id: Int { rawValue }
-
-        var title: String {
-            String(localized: "fanstats.map.proGate.trajectory.title", defaultValue: "PRO 전용 기능")
-        }
-
-        var message: String {
-            String(
-                localized: "fanstats.map.proGate.trajectory.message",
-                defaultValue: "원정 구장 연결 궤적·거리 애니메이션은 PRO 구독 시 이용할 수 있습니다."
-            )
-        }
     }
 
     private var homeCoordinate: CLLocationCoordinate2D? {
@@ -178,17 +167,6 @@ struct FolderStadiumMapView: View {
         }
         let pct = Int(round(Double(wins) / Double(d) * 100))
         return "\(pct)%"
-    }
-
-    private var roadTripSummaryShareText: String {
-        let km = Int(highlightReel.odometerKm.rounded())
-        let venues = mapModel.venuePinGroups.count
-        let wr = roadTripWinRateUnderFilters
-        let template = String(
-            localized: "fanstats.map.roadTrip.summary.shareFormat",
-            defaultValue: "원정 하이라이트 요약 — 약 %d km, 구장 %d곳, 필터 기준 승률 %@"
-        )
-        return String.localizedStringWithFormat(template, km, venues, wr)
     }
 
     private var roadTripReelAccessibilitySummary: String {
@@ -280,6 +258,14 @@ struct FolderStadiumMapView: View {
                         guard let map = proxy.map else { return }
                         installFanfolioRoadTripGeoJSONLineLayers(map: map)
                         syncFanfolioRoadTripGeoJSONLineData(map: map)
+                        captureMapSnapshot = { proxy.captureSnapshot(includeOverlays: true) }
+                        applyStaticStadiumCoordinates()
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 300_000_000)
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                                visiblePinGroups = mapModel.venuePinGroups
+                            }
+                        }
                     }
                     .onChange(of: roadTripGeoJSONSyncSignature) { _, _ in
                         syncFanfolioRoadTripGeoJSONLineData(map: proxy.map)
@@ -297,6 +283,9 @@ struct FolderStadiumMapView: View {
                 .onChange(of: mapModel.venuePinGroupIdsSignature) { _, _ in
                     if let id = selectedVenueGroupId, !mapModel.venuePinGroups.contains(where: { $0.id == id }) {
                         selectedVenueGroupId = nil
+                    }
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                        visiblePinGroups = mapModel.venuePinGroups
                     }
                 }
                 .onChange(of: filterSignature) { _, _ in
@@ -432,14 +421,13 @@ struct FolderStadiumMapView: View {
                         totalKm: Int(highlightReel.odometerKm.rounded()),
                         venueCount: mapModel.venuePinGroups.count,
                         winRateText: roadTripWinRateUnderFilters,
-                        shareText: roadTripSummaryShareText,
-                        routeSegments: mapModel.roadTripVisualSegments,
                         accentColor: roadTripLineColor,
                         onDismiss: {
                             highlightReel.stop()
                             roadTripActive = false
                             applyInitialCameraIfNeeded()
-                        }
+                        },
+                        onCaptureMapSnapshot: captureMapSnapshot
                     )
                     .padding(.horizontal, 16)
                     .padding(.bottom, 28)
@@ -480,13 +468,6 @@ struct FolderStadiumMapView: View {
         .fullScreenCover(item: $viewerTicket) { ticket in
             TicketImageViewerView(ticket: ticket)
         }
-        .alert(item: $roadTripProPrompt) { kind in
-            Alert(
-                title: Text(kind.title),
-                message: Text(kind.message),
-                dismissButton: .default(Text(String(localized: "common.action.ok", defaultValue: "확인")))
-            )
-        }
         .navigationTitle(String(localized: "fanstats.map.navigationTitle", defaultValue: "직관 지도"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -495,7 +476,7 @@ struct FolderStadiumMapView: View {
                     if isPro {
                         toggleRoadTrip()
                     } else {
-                        roadTripProPrompt = .trajectory
+                        presentPaywall()
                     }
                 } label: {
                     ZStack(alignment: .topTrailing) {
@@ -536,7 +517,22 @@ struct FolderStadiumMapView: View {
         var out = roadTripCachedCompletedPolylines
         guard isPro, roadTripActive else { return out }
         let segs = mapModel.roadTripVisualSegments
-        if segs.isEmpty || highlightReel.showAllArcsSummary { return out }
+        if segs.isEmpty { return out }
+        // Summary 단계에서는 캐시 타이밍과 무관하게 직접 전체 경로를 반환해 선이 사라지는 문제를 막음.
+        if highlightReel.showAllArcsSummary {
+            return segs.map { RoadTripPolylineDrawSegment(id: $0.id, coordinates: $0.coordinates, isTrail: false) }
+        }
+        // legPause: onChange 캐시 딜레이 없이 직접 계산.
+        // 탭 fast-forward 후 phase 전환 시 onChange가 캐시를 업데이트하기 전 1프레임 사이에
+        // 선이 깜빡이는 Race Condition을 제거한다.
+        if highlightReel.phase == .legPause {
+            if highlightReel.pinCalloutShowsDeparture { return [] }
+            let n = highlightReel.segmentIndex + 1
+            guard n > 0 else { return [] }
+            return Array(segs.prefix(n).map {
+                RoadTripPolylineDrawSegment(id: $0.id, coordinates: $0.coordinates, isTrail: true)
+            })
+        }
 
         if highlightReel.phase == .flying,
            highlightReel.segmentIndex < segs.count {
@@ -618,8 +614,8 @@ struct FolderStadiumMapView: View {
 
         let lw = roadTripLineWidths
         let baseW = Self.roadTripBaseGuideLineWidth
-        /// 베이스(점선)보다 좁으면 양옆으로 회색이 비침 — 최소한 가이드와 같거나 살짝 두껍게.
-        let trailW = max(baseW * 1.08, max(2.4, lw.core * 1.85))
+        /// 베이스(점선)보다 확실히 두껍게 — blur 후 가장자리까지 점선이 가려지도록 1.55× 이상 유지.
+        let trailW = max(baseW * 1.55, max(3.2, lw.core * 2.5))
         let tipW = max(baseW * 1.12, max(3.0, lw.glow * 0.72))
 
         do {
@@ -641,7 +637,14 @@ struct FolderStadiumMapView: View {
             baseLayer.lineJoin = .constant(.round)
             baseLayer.lineRoundLimit = .constant(1.08)
             baseLayer.lineColor = .constant(StyleColor(Color(white: 0.72).opacity(0.55)))
-            baseLayer.lineWidth = .constant(baseW)
+            baseLayer.lineWidth = .expression(
+                Exp(.interpolate) {
+                    Exp(.linear); Exp(.zoom)
+                    4.0; 0.4
+                    9.0; baseW * 0.62
+                    13.0; baseW
+                }
+            )
             baseLayer.lineBlur = .constant(0)
             baseLayer.lineDasharray = .constant([2.2, 2.8])
             baseLayer.lineSortKey = .constant(-20)
@@ -652,9 +655,16 @@ struct FolderStadiumMapView: View {
             trailLayer.lineCap = .constant(.round)
             trailLayer.lineJoin = .constant(.round)
             trailLayer.lineRoundLimit = .constant(1.08)
-            trailLayer.lineColor = .constant(StyleColor(roadTripLineColor.opacity(0.72)))
-            trailLayer.lineWidth = .constant(trailW)
-            trailLayer.lineBlur = .constant(0.35)
+            trailLayer.lineColor = .constant(StyleColor(roadTripLineColor.opacity(0.90)))
+            trailLayer.lineWidth = .expression(
+                Exp(.interpolate) {
+                    Exp(.linear); Exp(.zoom)
+                    4.0; 0.7
+                    9.0; trailW * 0.58
+                    13.0; trailW
+                }
+            )
+            trailLayer.lineBlur = .constant(0.18)
             trailLayer.lineEmissiveStrength = .constant(0.18)
             trailLayer.lineSortKey = .constant(2)
             try map.addLayer(trailLayer, layerPosition: .above(FanfolioRoadTripGeoJSONLine.baseLayerId))
@@ -665,7 +675,14 @@ struct FolderStadiumMapView: View {
             tipLayer.lineJoin = .constant(.round)
             tipLayer.lineRoundLimit = .constant(1.08)
             tipLayer.lineColor = .constant(StyleColor(roadTripGlowLineColor.opacity(0.95)))
-            tipLayer.lineWidth = .constant(tipW)
+            tipLayer.lineWidth = .expression(
+                Exp(.interpolate) {
+                    Exp(.linear); Exp(.zoom)
+                    4.0; 0.9
+                    9.0; tipW * 0.60
+                    13.0; tipW
+                }
+            )
             tipLayer.lineBlur = .constant(min(2.0, lw.glowBlur * 0.85))
             tipLayer.lineEmissiveStrength = .constant(0.62)
             tipLayer.lineBorderWidth = .constant(0.18)
@@ -738,7 +755,7 @@ struct FolderStadiumMapView: View {
         }
 
         // `id`는 `StadiumMapVenuePinGroup`의 좌표 키와 동일 — 갱신 시 어노테이션 정체성 유지.
-        ForEvery(mapModel.venuePinGroups, id: \.id) { group in
+        ForEvery(visiblePinGroups, id: \.id) { group in
             let rep = group.matches[0]
             let atSavedHome = isPro && coordinateIsNearSavedHome(group.coordinate)
             MapViewAnnotation(coordinate: group.coordinate) {
@@ -754,7 +771,10 @@ struct FolderStadiumMapView: View {
                 ) {
                     selectedVenueGroupId = group.id
                 }
+                .scaleEffect(isPro && roadTripActive && highlightReel.showAllArcsSummary ? 0.52 : 1.0, anchor: .bottom)
+                .animation(.spring(response: 0.38, dampingFraction: 0.8), value: highlightReel.showAllArcsSummary)
             }
+            .allowOverlap(true)
             .variableAnchors([ViewAnnotationAnchorConfig(anchor: .bottom)])
         }
 
@@ -771,6 +791,7 @@ struct FolderStadiumMapView: View {
                     isHomeVenue: true
                 ) {}
             }
+            .allowOverlap(true)
             .variableAnchors([ViewAnnotationAnchorConfig(anchor: .bottom)])
         }
     }
@@ -821,7 +842,7 @@ struct FolderStadiumMapView: View {
                 .foregroundStyle(roadTripLineColor)
             HStack(spacing: 4) {
                 Text(String(localized: "fanstats.map.roadTrip.totalKm.prefix", defaultValue: "필터 기준 이동 경로 합계 약"))
-                Text("\(Int(highlightReel.odometerKm.rounded()))")
+                Text(verbatim: "\(Int(highlightReel.odometerKm.rounded()))")
                     .fontWeight(.bold)
                     .monospacedDigit()
                     .contentTransition(.numericText(value: highlightReel.odometerKm))
@@ -936,6 +957,12 @@ struct FolderStadiumMapView: View {
         await MainActor.run { isBackfillGeocoding = true }
 
         for match in batch {
+            // 1순위: 정적 홈구장 좌표 사전 (NFL·EPL·KBO 홈구장 → 100% 정확)
+            if let staticCoord = HomeStadiumCoordinateStore.coordinate(for: match, folder: folder) {
+                await MainActor.run { applyVenueCoordinate(staticCoord, to: match) }
+                continue
+            }
+            // 2순위: geocoding (중립 구장·커버 범위 외 리그 폴백)
             guard let raw = match.mapGeocodeQuery else { continue }
             let applyLeagueBias = StadiumGeocodingService.shouldApplyLeagueGeocodeBias(forQuery: raw)
             let bias = applyLeagueBias ? StadiumGeocodingService.preferredSearchRegion(folder: folder) : nil
@@ -957,28 +984,32 @@ struct FolderStadiumMapView: View {
         }
     }
 
-    /// 이 구장(핀 그룹) 직관 기준 승률 = 승 ÷ (승+패). 무승부만 있으면 중립(주황).
+    /// 이 구장(핀 그룹) 직관 기준 승률 = 승 ÷ (승+패). 무승부만이면 팔레트 중립 구간(fair) 색.
     private func pinColorForVenue(matches: [SportsModel]) -> Color {
-        guard !matches.isEmpty else { return Color(white: 0.48) }
+        guard !matches.isEmpty else { return WinRateTierPalette.pinNoMatches }
         let wins = matches.filter { $0.matchResult == .win }.count
         let losses = matches.filter { $0.matchResult == .loss }.count
         let decisive = wins + losses
         guard decisive > 0 else {
-            return .orange
+            return WinRateTier.tier(forPercent: 45).accent
         }
-        let rate = Double(wins) / Double(decisive)
-        if rate >= 0.55 {
-            return Color.from(hex: folder.teamColor) ?? .green
-        }
-        if rate >= 0.35 {
-            return .orange
-        }
-        return Color(white: 0.45)
+        let pct = Double(wins) / Double(decisive) * 100
+        return WinRateTierPalette.accentColor(forPercent: pct, hasCompletedGames: true)
     }
 
     @MainActor
     private func applyVenueCoordinate(_ coord: CLLocationCoordinate2D, to match: SportsModel) {
         guard !match.hasVenueCoordinate else { return }
+        applyVenueCoordinateForced(coord, to: match)
+    }
+
+    /// 정적 사전 좌표는 기존 좌표가 있어도 덮어씁니다 (geocoding 오염 데이터 정정용).
+    /// 좌표가 이미 동일하면 저장하지 않습니다 (불필요한 SwiftData write 방지).
+    @MainActor
+    private func applyVenueCoordinateForced(_ coord: CLLocationCoordinate2D, to match: SportsModel) {
+        let isSame = match.venueLatitude.map { abs($0 - coord.latitude) < 1e-5 } == true
+                  && match.venueLongitude.map { abs($0 - coord.longitude) < 1e-5 } == true
+        guard !isSame else { return }
         match.venueLatitude = coord.latitude
         match.venueLongitude = coord.longitude
         for ticket in match.savedTickets {
@@ -986,6 +1017,30 @@ struct FolderStadiumMapView: View {
             ticket.longitude = coord.longitude
         }
         try? modelContext.save()
+    }
+
+    /// 정적 홈구장 사전을 전체 완료 경기에 적용합니다.
+    /// geocoding으로 잘못 저장된 기존 좌표도 덮어씁니다.
+    private func applyStaticStadiumCoordinates() {
+        let allCompleted = mapModel.filteredCompletedMatches
+        guard !allCompleted.isEmpty else { return }
+        Task { @MainActor in
+            var didChange = false
+            for match in allCompleted {
+                guard let staticCoord = HomeStadiumCoordinateStore.coordinate(for: match, folder: folder) else { continue }
+                let isSame = match.venueLatitude.map { abs($0 - staticCoord.latitude) < 1e-5 } == true
+                          && match.venueLongitude.map { abs($0 - staticCoord.longitude) < 1e-5 } == true
+                guard !isSame else { continue }
+                applyVenueCoordinateForced(staticCoord, to: match)
+                didChange = true
+            }
+            if didChange {
+                syncMapModelFromState()
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                    visiblePinGroups = mapModel.venuePinGroups
+                }
+            }
+        }
     }
 
     /// `t0`…`t1` 구간(파라미터는 `coordinateOnPolyline`과 동일한 정규화된 진행도)을 잇는 점열.
@@ -1107,11 +1162,10 @@ private struct RoadTripSummaryCard: View {
     let totalKm: Int
     let venueCount: Int
     let winRateText: String
-    let shareText: String
-    /// 릴에 그린 구간별 좌표(공유 시 GPX·GeoJSON 경로 생성).
-    let routeSegments: [RoadTripVisualSegment]
     let accentColor: Color
     let onDismiss: () -> Void
+    /// 지도 스냅샷 캡처 클로저 — `nil`이면 공유 버튼을 비활성화.
+    var onCaptureMapSnapshot: (() -> UIImage?)?
 
     @State private var isPreparingShare = false
     @State private var showShareSheet = false
@@ -1163,39 +1217,30 @@ private struct RoadTripSummaryCard: View {
                 Button {
                     Task { @MainActor in
                         isPreparingShare = true
-                        let image = RoadTripSummaryShareImageBuilder.makeImage(
-                            totalKm: totalKm,
-                            venueCount: venueCount,
-                            winRateText: winRateText,
-                            accentColor: accentColor
-                        )
-                        var items: [Any] = []
-                        if let image {
-                            items.append(image)
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        if let raw = onCaptureMapSnapshot?(),
+                           let composed = RoadTripMapSnapshotComposer.compose(
+                               mapSnapshot: raw,
+                               totalKm: totalKm,
+                               venueCount: venueCount,
+                               winRateText: winRateText,
+                               accentColor: accentColor
+                           ) {
+                            shareActivityItems = [composed]
+                            showShareSheet = true
                         }
-                        items.append(shareText)
-                        let flatCoords = RoadTripRouteShareBuilder.flattenedCoordinates(segments: routeSegments)
-                        let gpxName = String(
-                            localized: "fanstats.map.roadTrip.summary.route.gpxTrackName",
-                            defaultValue: "Fanfolio 원정 경로"
-                        )
-                        if let gpxURL = RoadTripRouteShareBuilder.writeGPXFile(coordinates: flatCoords, trackName: gpxName) {
-                            items.append(gpxURL)
-                        }
-                        if let geoURL = RoadTripRouteShareBuilder.writeGeoJSONLineStringFile(coordinates: flatCoords) {
-                            items.append(geoURL)
-                        }
-                        shareActivityItems = items
                         isPreparingShare = false
-                        showShareSheet = true
                     }
                 } label: {
                     Group {
                         if isPreparingShare {
-                            ProgressView()
-                                .tint(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
+                            Label(
+                                String(localized: "fanstats.map.roadTrip.summary.share.preparing", defaultValue: "이미지 생성 중…"),
+                                systemImage: "camera.viewfinder"
+                            )
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
                         } else {
                             Label(
                                 String(localized: "fanstats.map.roadTrip.summary.share", defaultValue: "공유"),
@@ -1209,11 +1254,11 @@ private struct RoadTripSummaryCard: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.blue)
-                .disabled(isPreparingShare)
+                .disabled(isPreparingShare || onCaptureMapSnapshot == nil)
                 .accessibilityHint(
                     String(
                         localized: "fanstats.map.roadTrip.summary.share.a11y.hint",
-                        defaultValue: "요약 이미지, 텍스트, 원정 경로 파일(GPX·GeoJSON)을 공유할 수 있으며, 사진 앱에 저장할 수 있습니다."
+                        defaultValue: "지도 경로와 하이라이트 요약이 담긴 이미지를 공유합니다."
                     )
                 )
 
@@ -1226,6 +1271,7 @@ private struct RoadTripSummaryCard: View {
                         .padding(.vertical, 10)
                 }
                 .buttonStyle(.bordered)
+                .disabled(isPreparingShare)
             }
         }
         .padding(18)
@@ -1234,10 +1280,7 @@ private struct RoadTripSummaryCard: View {
                 .fill(.ultraThinMaterial)
                 .shadow(color: .black.opacity(0.1), radius: 18, y: 8)
         }
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
-        }
+        .groupedCardOutline(cornerRadius: 22)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(cardAccessibilitySummary)
         .sheet(isPresented: $showShareSheet) {
@@ -1260,10 +1303,10 @@ private struct RoadTripSummaryCard: View {
 
     private func summaryColumn(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
+            Text(verbatim: title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-            Text(value)
+            Text(verbatim: value)
                 .font(.subheadline.weight(.bold))
                 .monospacedDigit()
         }
@@ -1373,7 +1416,7 @@ private enum RoadTripSummaryShareImageBuilder {
         )
         .frame(width: 400, height: 232)
         let renderer = ImageRenderer(content: content)
-        renderer.scale = UIScreen.main.scale
+        renderer.scale = max(UITraitCollection.current.displayScale, 1)
         return renderer.uiImage
     }
 }
@@ -1428,10 +1471,10 @@ private struct RoadTripShareExportView: View {
 
     private func exportColumn(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
+            Text(verbatim: title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color.white.opacity(0.65))
-            Text(value)
+            Text(verbatim: value)
                 .font(.system(size: 17, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(.white)
@@ -1493,6 +1536,111 @@ private struct RoadTripFlyingPlaneMarker: View {
     }
 }
 
+// MARK: - 지도 스냅샷 합성기
+
+/// 캡처된 지도 UIImage 아래에 팀 컬러 stats 바를 합성해 공유용 고화질 이미지를 반환합니다.
+private enum RoadTripMapSnapshotComposer {
+    @MainActor
+    static func compose(
+        mapSnapshot: UIImage,
+        totalKm: Int,
+        venueCount: Int,
+        winRateText: String,
+        accentColor: Color
+    ) -> UIImage? {
+        let scale = mapSnapshot.scale  // 캡처 원본 scale(@3x 등) 그대로 유지
+        let mapW = mapSnapshot.size.width   // pt 단위
+        let mapH = mapSnapshot.size.height  // pt 단위
+        let barH: CGFloat = 80
+
+        let statsBar = RoadTripMapSnapshotStatsBar(
+            totalKm: totalKm,
+            venueCount: venueCount,
+            winRateText: winRateText,
+            accentColor: accentColor,
+            width: mapW
+        )
+        .frame(width: mapW, height: barH)
+
+        let barRenderer = ImageRenderer(content: statsBar)
+        barRenderer.scale = scale
+        barRenderer.proposedSize = ProposedViewSize(width: mapW, height: barH)
+        guard let barImage = barRenderer.uiImage else { return mapSnapshot }
+
+        // 출력 크기 = 지도 원본 그대로(9:16 유지) — stats 바는 하단에 오버레이
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        format.opaque = true
+
+        return UIGraphicsImageRenderer(size: CGSize(width: mapW, height: mapH), format: format).image { _ in
+            mapSnapshot.draw(at: .zero)
+            barImage.draw(at: CGPoint(x: 0, y: mapH - barH))
+        }
+    }
+}
+
+/// 합성 이미지 하단 stats 바 뷰 (지도 폭에 맞게 늘어남).
+private struct RoadTripMapSnapshotStatsBar: View {
+    let totalKm: Int
+    let venueCount: Int
+    let winRateText: String
+    let accentColor: Color
+    let width: CGFloat
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(accentColor)
+                .frame(width: 4)
+
+            HStack(alignment: .center, spacing: 0) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(
+                        String(
+                            localized: "fanstats.map.roadTrip.snapshot.totalKm",
+                            defaultValue: "총 \(totalKm) km"
+                        )
+                    )
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                    HStack(spacing: 6) {
+                        Text(
+                            String(
+                                format: String(
+                                    localized: "fanstats.map.roadTrip.snapshot.venues",
+                                    defaultValue: "구장 %d곳"
+                                ),
+                                venueCount
+                            )
+                        )
+                        Text(verbatim: "·")
+                            .foregroundStyle(Color.white.opacity(0.45))
+                        Text(
+                            String(
+                                localized: "fanstats.map.roadTrip.snapshot.winRate",
+                                defaultValue: "승률 \(winRateText)"
+                            )
+                        )
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.75))
+                }
+                .padding(.leading, 12)
+
+                Spacer(minLength: 8)
+
+                Text("Fanfolio")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.55))
+                    .padding(.trailing, 14)
+            }
+        }
+        .frame(width: width, height: 80)
+        .background(Color(red: 0.08, green: 0.09, blue: 0.12))
+    }
+}
+
 // MARK: - 필터 칩
 
 private struct StadiumMapFilterChip: View {
@@ -1502,7 +1650,7 @@ private struct StadiumMapFilterChip: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
+            Text(verbatim: title)
                 .font(.caption.weight(.semibold))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
@@ -1555,7 +1703,7 @@ private struct MatchStadiumMarker: View {
                 }
 
                 if matchCount > 1 {
-                    Text("\(matchCount)")
+                    Text(verbatim: "\(matchCount)")
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
@@ -1584,8 +1732,8 @@ private struct MatchStadiumMarker: View {
             : String(
                 format: String(localized: "fanstats.map.marker.a11y", defaultValue: "%1$@ 대 %2$@, %3$@"),
                 locale: .autoupdatingCurrent,
-                representativeMatch.team1Display,
-                representativeMatch.opponentTeam,
+                KBOTeamLogoAsset.uiDisplayName(forTeamName: representativeMatch.team1Display, leagueCode: representativeMatch.folder?.leagueCode),
+                KBOTeamLogoAsset.uiDisplayName(forTeamName: representativeMatch.opponentTeam, leagueCode: representativeMatch.folder?.leagueCode),
                 representativeMatch.matchResult.displayName
             )
         if isHomeVenue {
@@ -1704,6 +1852,13 @@ private struct VenueMatchCalloutRow: View {
     var dateString: String?
     let onOpenTicket: (SavedTicket) -> Void
 
+    private var team1UI: String {
+        KBOTeamLogoAsset.uiDisplayName(forTeamName: match.team1Display, leagueCode: match.folder?.leagueCode)
+    }
+    private var team2UI: String {
+        KBOTeamLogoAsset.uiDisplayName(forTeamName: match.opponentTeam, leagueCode: match.folder?.leagueCode)
+    }
+
     private var preferredTicket: SavedTicket? {
         match.savedTickets.sorted { $0.createdAt > $1.createdAt }.first
     }
@@ -1715,17 +1870,17 @@ private struct VenueMatchCalloutRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("\(match.team1Display) vs \(match.opponentTeam)")
+                Text(verbatim: "\(team1UI) vs \(team2UI)")
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(2)
                 HStack(spacing: 4) {
-                    Text("\(match.myTeamScore)")
+                    Text(verbatim: "\(match.myTeamScore)")
                         .font(.subheadline.weight(.bold).monospacedDigit())
                     Text(":")
                         .foregroundStyle(.secondary)
-                    Text("\(match.opponentScore)")
+                    Text(verbatim: "\(match.opponentScore)")
                         .font(.subheadline.weight(.bold).monospacedDigit())
-                    Text("·")
+                    Text(verbatim: "·")
                         .foregroundStyle(.tertiary)
                     Text(match.matchResult.displayName)
                         .font(.caption.weight(.semibold))

@@ -110,14 +110,14 @@ extension EditCultureView {
             }
             .pickerStyle(.segmented)
         } footer: {
-            Text("관람 전에는 '예정', 관람 후에는 '완료'로 변경하세요.")
+            Text(String(localized: "editCulture.statusHint", defaultValue: "관람 전에는 '예정', 관람 후에는 '완료'로 변경하세요."))
         }
     }
     
     private var eventInfoSection: some View {
         Section {
             HStack {
-                Text("폴더")
+                Text(String(localized: "editCulture.folderLabel", defaultValue: "폴더"))
                 Spacer()
                 HStack(spacing: 6) {
                     Image(systemName: cultureType.iconName)
@@ -130,7 +130,7 @@ extension EditCultureView {
             TextField("제목", text: $title)
             TextField("아티스트 / 출연진", text: $artist)
         } header: {
-            Text("이벤트 정보")
+            Text(String(localized: "editCulture.eventInfo", defaultValue: "이벤트 정보"))
         }
     }
     
@@ -236,9 +236,9 @@ extension EditCultureView {
                 .foregroundStyle(.blue)
             }
         } header: {
-            Text("현장 사진")
+            Text(String(localized: "editCulture.photosSection", defaultValue: "현장 사진"))
         } footer: {
-            Text("공연장 사진, 셀카, 포토카드 등 추억을 기록하세요. (최대 10장)")
+            Text(String(localized: "editCulture.photosHint", defaultValue: "공연장 사진, 셀카, 포토카드 등 추억을 기록하세요. (최대 10장)"))
         }
     }
     

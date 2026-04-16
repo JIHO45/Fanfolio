@@ -10,6 +10,7 @@ import SwiftData
 
 struct TicketGalleryView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(StoreSubscriptionManager.self) private var storeSubscription
     @Query(sort: \SavedTicket.createdAt, order: .reverse) private var tickets: [SavedTicket]
     
     @State private var selectedSportType: SportType?
@@ -156,7 +157,7 @@ struct TicketGalleryView: View {
         Task {
             let image = await TicketImageExport.prepareSavedTicketShareImage(
                 relativeMasterPath: path,
-                isPro: FanfolioEntitlements.isPro
+                isPro: storeSubscription.isPro
             )
             await MainActor.run {
                 isPreparingShare = false
@@ -173,6 +174,7 @@ struct TicketGalleryView: View {
         guard let ticket = ticketToDelete else { return }
         TicketImageStore.delete(paths: [ticket.imagePath, ticket.thumbnailPath])
         modelContext.delete(ticket)
+        try? modelContext.save()
         ticketToDelete = nil
     }
 }
@@ -209,7 +211,7 @@ struct SavedTicketThumbnailView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             
             VStack(alignment: .leading, spacing: 4) {
-                Text("\(ticket.team1Name) vs \(ticket.team2Name)")
+                Text(verbatim: "\(ticket.galleryTeam1Display) vs \(ticket.galleryTeam2Display)")
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(2)
                 
@@ -218,9 +220,9 @@ struct SavedTicketThumbnailView: View {
                     .foregroundStyle(.secondary)
                 
                 HStack(spacing: 6) {
-                    Text("\(ticket.myTeamScore)")
+                    Text(verbatim: "\(ticket.myTeamScore)")
                     Text(":")
-                    Text("\(ticket.opponentScore)")
+                    Text(verbatim: "\(ticket.opponentScore)")
                     Text(ticket.matchResult.displayName)
                         .foregroundStyle(ticket.matchResult.color)
                 }
@@ -235,15 +237,17 @@ struct SavedTicketThumbnailView: View {
         }
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 18)
     }
 }
 
 struct TicketImageViewerView: View {
     @Environment(\.dismiss) private var dismiss
-    
+    @Environment(StoreSubscriptionManager.self) private var storeSubscription
+
     let ticket: SavedTicket
     
     @State private var shareImage: UIImage?
@@ -358,7 +362,7 @@ struct TicketImageViewerView: View {
                         Task {
                             let image = await TicketImageExport.prepareSavedTicketShareImage(
                                 relativeMasterPath: path,
-                                isPro: FanfolioEntitlements.isPro
+                                isPro: storeSubscription.isPro
                             )
                             await MainActor.run {
                                 isPreparingShare = false
@@ -392,10 +396,10 @@ struct TicketImageViewerView: View {
                 Spacer()
                 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("\(ticket.team1Name) vs \(ticket.team2Name)")
+                    Text(verbatim: "\(ticket.galleryTeam1Display) vs \(ticket.galleryTeam2Display)")
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(.white)
-                    Text("\(ticket.myTeamScore) : \(ticket.opponentScore) · \(ticket.matchResult.displayName)")
+                    Text(verbatim: "\(ticket.myTeamScore) : \(ticket.opponentScore) · \(ticket.matchResult.displayName)")
                         .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.85))
                     Label(ticket.sportType.displayName, systemImage: ticket.sportType.iconName)

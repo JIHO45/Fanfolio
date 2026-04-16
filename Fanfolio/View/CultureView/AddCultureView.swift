@@ -84,7 +84,7 @@ extension AddCultureView {
             }
             .pickerStyle(.segmented)
         } footer: {
-            Text("관람 전이면 '예정', 이미 본 공연/영화를 기록하면 '완료'를 선택하세요.")
+            Text(String(localized: "addCulture.statusHint", defaultValue: "관람 전이면 '예정', 이미 본 공연/영화를 기록하면 '완료'를 선택하세요."))
         }
     }
     
@@ -92,7 +92,7 @@ extension AddCultureView {
         Section {
             // 폴더 정보 표시
             HStack {
-                Text("폴더")
+                Text(String(localized: "addCulture.folderLabel", defaultValue: "폴더"))
                 Spacer()
                 HStack(spacing: 6) {
                     Image(systemName: folder.cultureType.iconName)
@@ -105,7 +105,7 @@ extension AddCultureView {
             TextField("제목 (예: 위키드 첫 관람)", text: $title)
             TextField("아티스트 / 출연진 (선택)", text: $artist)
         } header: {
-            Text("이벤트 정보")
+            Text(String(localized: "addCulture.eventInfo", defaultValue: "이벤트 정보"))
         }
     }
     
@@ -210,9 +210,9 @@ extension AddCultureView {
                 .foregroundStyle(.blue)
             }
         } header: {
-            Text("현장 사진")
+            Text(String(localized: "addCulture.photosSection", defaultValue: "현장 사진"))
         } footer: {
-            Text("공연장 사진, 셀카, 포토카드 등 추억을 기록하세요. (최대 10장)")
+            Text(String(localized: "addCulture.photosHint", defaultValue: "공연장 사진, 셀카, 포토카드 등 추억을 기록하세요. (최대 10장)"))
         }
     }
     

@@ -80,11 +80,6 @@ struct APISportsNonESPNLeaguesTests {
         #expect(APISportsService.nonESPNLeagues.contains("KBO"))
     }
 
-    @Test("KBL(한국 농구)는 API-Sports 담당")
-    func kblIsNonESPN() {
-        #expect(APISportsService.nonESPNLeagues.contains("KBL"))
-    }
-
     @Test("EPL(ENG.1)은 API-Sports 담당")
     func eplIsNonESPN() {
         #expect(APISportsService.nonESPNLeagues.contains("ENG.1"))

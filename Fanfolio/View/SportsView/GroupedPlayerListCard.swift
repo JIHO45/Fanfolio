@@ -6,7 +6,7 @@
 import SwiftUI
 
 struct GroupedPlayerListCard<Destination: View>: View {
-    let title: LocalizedStringKey
+    let title: String
     let players: [PlayerInfo]
     let sportType: SportType
     let teamColorHex: String?
@@ -81,9 +81,10 @@ struct GroupedPlayerListCard<Destination: View>: View {
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 20)
     }
 
     @ViewBuilder
@@ -192,7 +193,7 @@ struct GroupedPlayerListCard<Destination: View>: View {
             Text(group.displayName)
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
-            Text("\(count)")
+            Text(verbatim: "\(count)")
                 .font(.caption2.bold())
                 .foregroundStyle(.white)
                 .padding(.horizontal, 6)
@@ -222,7 +223,7 @@ struct GroupedPlayerListCard<Destination: View>: View {
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
                     if let number = player.number {
-                        Text("#\(number)")
+                        Text(verbatim: "#\(number)")
                             .font(.caption2.bold())
                             .foregroundStyle(.white)
                             .padding(.horizontal, 5)

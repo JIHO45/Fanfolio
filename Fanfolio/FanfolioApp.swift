@@ -37,24 +37,28 @@ struct FanfolioApp: App {
         if let cloudContainer = try? ModelContainer(for: schema, configurations: cloudConfig) {
             container = cloudContainer
             Logger.data.info("ModelContainer initialized with CloudKit sync")
-        } else if let localContainer = try? ModelContainer(for: schema) {
+        } else if let localContainer = try? ModelContainer(for: schema, configurations: ModelConfiguration(cloudKitDatabase: .none)) {
             container = localContainer
             Logger.data.warning("CloudKit unavailable, using local storage only")
         } else {
             fatalError("SwiftData ModelContainer 초기화에 실패했습니다. 스키마를 확인하세요.")
         }
+
+        _ = StoreSubscriptionManager.shared
     }
 
     var body: some Scene {
         WindowGroup {
             Group {
                 if authService.isSignedIn || authService.isGuest {
-                    CategoryView()
+                    FanfolioRootView()
                         .environment(authService)
                         .environment(networkMonitor)
+                        .environment(StoreSubscriptionManager.shared)
                 } else {
                     SignInView()
                         .environment(authService)
+                        .environment(StoreSubscriptionManager.shared)
                 }
             }
             .modelContainer(container)

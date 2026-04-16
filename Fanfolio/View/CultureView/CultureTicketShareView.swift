@@ -15,6 +15,7 @@ import CoreImage
 
 struct CultureTicketShareView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(StoreSubscriptionManager.self) private var storeSubscription
 
     let event: CultureModel
 
@@ -221,13 +222,13 @@ struct CultureTicketShareView: View {
                 }
             } label: {
                 HStack(spacing: 6) {
-                    Text("한마디")
+                    Text(String(localized: "culture.ticket.caption", defaultValue: "한마디"))
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.7))
 
                     // 접혔을 때 입력된 내용 힌트
                     if !isTextExpanded && !customOverlayText.isEmpty {
-                        Text("· \(customOverlayText)")
+                        Text(verbatim: "· \(customOverlayText)")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.white.opacity(0.4))
                             .lineLimit(1)
@@ -336,7 +337,7 @@ struct CultureTicketShareView: View {
                         Image(systemName: "square.and.arrow.up")
                             .font(.system(size: 14, weight: .semibold))
                     }
-                    Text("공유")
+                    Text(String(localized: "ticket.share.action", defaultValue: "공유"))
                         .font(.system(size: 14, weight: .semibold))
                 }
                 .foregroundStyle(.white)
@@ -375,7 +376,8 @@ struct CultureTicketShareView: View {
     // MARK: - 이미지 렌더링
 
     @MainActor
-    private func buildImage() async -> UIImage? {
+    private func buildImageForSharing() async -> UIImage? {
+        let isPro = storeSubscription.isPro
         let model = currentCardModel
         let renderer = ImageRenderer(
             content: CultureTicketCardView(model: model)
@@ -384,19 +386,45 @@ struct CultureTicketShareView: View {
                     height: CultureTicketCardView.designHeight
                 )
         )
-        renderer.scale = 3
+        renderer.scale = isPro ? 3 : 2
         renderer.isOpaque = true
         renderer.proposedSize = ProposedViewSize(
             width: CultureTicketCardView.designWidth,
             height: CultureTicketCardView.designHeight
         )
-        return renderer.uiImage
+        guard let image = renderer.uiImage else { return nil }
+        if isPro { return image }
+        return applyFanfolioWatermark(to: image)
+    }
+
+    @MainActor
+    private func applyFanfolioWatermark(to image: UIImage) -> UIImage? {
+        let w = image.size.width
+        let h = image.size.height
+        let content = ZStack(alignment: .topTrailing) {
+            Image(uiImage: image)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+            Text("FANFOLIO")
+                .font(.system(size: 10, weight: .black))
+                .tracking(4.5)
+                .foregroundStyle(.white.opacity(0.55))
+                .padding(.trailing, 16)
+                .padding(.top, 16)
+        }
+        .frame(width: w, height: h)
+        let r = ImageRenderer(content: content)
+        r.scale = 1
+        r.isOpaque = true
+        r.proposedSize = ProposedViewSize(width: w, height: h)
+        return r.uiImage
     }
 
     @MainActor
     private func shareRenderedImage() async {
         isRendering = true
-        shareImage = await buildImage()
+        shareImage = await buildImageForSharing()
         isRendering = false
         if shareImage != nil {
             showingActivityShareSheet = true
@@ -408,7 +436,7 @@ struct CultureTicketShareView: View {
         isSavingToLibrary = true
         defer { isSavingToLibrary = false }
 
-        guard let image = await buildImage() else {
+        guard let image = await buildImageForSharing() else {
             photoVM.saveErrorMessage = String(localized: "ticket.share.error.renderFailed", defaultValue: "티켓 이미지를 생성하지 못했습니다.")
             return
         }
@@ -452,6 +480,7 @@ struct CultureTicketShareView: View {
     )
     event.folder = folder
     return CultureTicketShareView(event: event)
+        .environment(StoreSubscriptionManager.shared)
 }
 
 #Preview("공유 시트 - 위키드") {
@@ -467,4 +496,5 @@ struct CultureTicketShareView: View {
     )
     event.folder = folder
     return CultureTicketShareView(event: event)
+        .environment(StoreSubscriptionManager.shared)
 }

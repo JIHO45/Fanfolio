@@ -10,7 +10,8 @@ import Foundation
 import os.log
 
 extension Logger {
-    private static let subsystem = "com.fanfolio"
+    /// Console.app 등에서 필터할 때 이 문자열과 정확히 일치해야 함 (`com.fanfolio` 아님).
+    private static let subsystem = "com.Joe.fanfolio"
 
     static let api     = Logger(subsystem: subsystem, category: "API")
     static let network = Logger(subsystem: subsystem, category: "Network")

@@ -5,6 +5,27 @@
 
 import Foundation
 
+// MARK: - String Catalog (런타임 키)
+
+/// `LocalizedStringResource(stringLiteral:)` 동적 키는 카탈로그 매칭이 실패해 기본(ko)만 나오는 경우가 있어,
+/// 언어별 `lproj` + `NSLocalizedString`으로 `Localizable`을 조회합니다.
+private enum LiveScoreCatalogL10n {
+    static func string(_ key: String, locale: Locale) -> String {
+        let langCode = languageCode(for: locale)
+        if let path = Bundle.main.path(forResource: langCode, ofType: "lproj"),
+           let bundle = Bundle(path: path) {
+            return NSLocalizedString(key, tableName: "Localizable", bundle: bundle, value: key, comment: "")
+        }
+        return NSLocalizedString(key, tableName: "Localizable", bundle: .main, value: key, comment: "")
+    }
+
+    private static func languageCode(for locale: Locale) -> String {
+        if let c = locale.language.languageCode?.identifier, c != "und" { return c }
+        return Bundle.main.preferredLocalizations.first.flatMap { Locale(identifier: $0).language.languageCode?.identifier }
+            ?? "en"
+    }
+}
+
 // MARK: - 실시간 경기 정보 (API-Sports 응답 통합)
 
 struct LiveFixture: Identifiable, Codable {
@@ -48,6 +69,8 @@ struct LiveFixtureStatus: Codable {
         // ESPN MLB: `ESPNPlayerService.espnPeriodShort`가 이닝을 "7TH"가 아니라 로컬라이즈 문자열만 넣음(예: ko "7회", en "7").
         if short.hasSuffix("회"), short != "회" { return true }
         if let inning = Int(short), (1...18).contains(inning) { return true }
+        // API-Sports KBO: "IN1"~"IN18" 형식 (예: "IN3" = 3이닝 진행 중)
+        if short.hasPrefix("IN"), let n = Int(short.dropFirst(2)), (1...18).contains(n) { return true }
         return false
     }
     
@@ -62,29 +85,52 @@ struct LiveFixtureStatus: Codable {
         }
     }
     
-    /// 화면 표시용 텍스트
-    var displayText: String {
+    /// 화면 표시용 텍스트 (앱 언어·지역 설정에 맞게 `Localizable`에서 로드)
+    var displayText: String { displayText(for: .current) }
+
+    func displayText(for locale: Locale) -> String {
         switch short {
-        case "NS": return "예정"
-        case "1Q": return "1쿼터"
-        case "2Q": return "2쿼터"
-        case "3Q": return "3쿼터"
-        case "4Q": return "4쿼터"
-        case "OT": return "연장"
-        case "HT": return "하프타임"
-        case "1H": return "전반"
-        case "2H": return "후반"
-        case "FT", "F": return "종료"
-        case "AOT": return "연장 종료"
+        case "NS":
+            return Self.localized("live.fixture.status.ns", locale: locale)
+        case "1Q":
+            return Self.localized("live.fixture.status.q1", locale: locale)
+        case "2Q":
+            return Self.localized("live.fixture.status.q2", locale: locale)
+        case "3Q":
+            return Self.localized("live.fixture.status.q3", locale: locale)
+        case "4Q":
+            return Self.localized("live.fixture.status.q4", locale: locale)
+        case "OT":
+            return Self.localized("live.fixture.status.ot", locale: locale)
+        case "HT":
+            return Self.localized("live.fixture.status.ht", locale: locale)
+        case "1H":
+            return Self.localized("scoreboard.period.firstHalf", locale: locale)
+        case "2H":
+            return Self.localized("scoreboard.period.secondHalf", locale: locale)
+        case "FT", "F":
+            return Self.localized("live.fixture.status.ft", locale: locale)
+        case "AOT":
+            return Self.localized("live.fixture.status.aot", locale: locale)
         default:
             // 야구 이닝(로컬 "%lld회" / 숫자만): 축구용 경과 분(′)은 MLB에 부적합
             if short.hasSuffix("회"), short != "회" { return short }
             if let n = Int(short), (1...18).contains(n) { return short }
+            // API-Sports KBO: "IN1"~"IN18" — 이닝 라벨은 스코어보드와 동일 포맷 키 사용
+            if short.hasPrefix("IN"), let n = Int(short.dropFirst(2)), (1...18).contains(n) {
+                let format = Self.localized("scoreboard.inning.labelFormat", locale: locale)
+                return String(format: format, locale: locale, Int64(n))
+            }
             if let e = elapsed {
-                return "\(e)′"
+                let format = Self.localized("live.fixture.status.elapsedFormat", locale: locale)
+                return String(format: format, locale: locale, Int64(e))
             }
             return short
         }
+    }
+
+    private static func localized(_ key: String, locale: Locale) -> String {
+        LiveScoreCatalogL10n.string(key, locale: locale)
     }
 }
 
@@ -105,8 +151,8 @@ struct PeriodScore: Identifiable, Codable {
 // MARK: - 종목별 피리어드 표기 헬퍼
 
 extension SportType {
-    /// 종목에 맞는 피리어드 레이블 생성
-    func periodLabels(count: Int) -> [String] {
+    /// 종목에 맞는 피리어드 레이블 생성 (`locale` 기준으로 `Localizable`에서 전반·후반·이닝·연장 등 로드)
+    func periodLabels(count: Int, locale: Locale = .current) -> [String] {
         switch self {
         case .americanFootball:
             let base = ["1Q","2Q","3Q","4Q"]
@@ -115,12 +161,28 @@ extension SportType {
             let base = ["1Q","2Q","3Q","4Q"]
             return count > 4 ? base + (1...(count-4)).map { "OT\($0)" } : Array(base.prefix(count))
         case .soccer:
-            return count > 2 ? ["전반","후반"] + (1...(count-2)).map { "연장\($0)" } : ["전반","후반"]
+            let first = Self.localizedCatalog("scoreboard.period.firstHalf", locale: locale)
+            let second = Self.localizedCatalog("scoreboard.period.secondHalf", locale: locale)
+            let halves = [first, second]
+            guard count > 2 else { return halves }
+            let otFormat = Self.localizedCatalog("live.fixture.periodLabels.soccer.otFormat", locale: locale)
+            let extras = (1...(count - 2)).map { i in
+                String(format: otFormat, locale: locale, Int64(i))
+            }
+            return halves + extras
         case .baseball:
-            return (1...max(9,count)).map { "\($0)회" }
+            let hi = max(9, count)
+            let format = Self.localizedCatalog("scoreboard.inning.labelFormat", locale: locale)
+            return (1...hi).map { inning in
+                String(format: format, locale: locale, Int64(inning))
+            }
         default:
             return (1...count).map { "\($0)" }
         }
+    }
+
+    private static func localizedCatalog(_ key: String, locale: Locale) -> String {
+        LiveScoreCatalogL10n.string(key, locale: locale)
     }
 }
 
@@ -246,9 +308,41 @@ enum ESPNCompetitionVenueGeocodeQuery {
         }
         let country = address.country?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !country.isEmpty {
-            return "\(name), \(city), \(country)"
+            return "\(name), \(city), \(Self.readableCountry(country))"
         }
         return "\(name), \(city)"
+    }
+
+    /// ESPN이 내려주는 ISO·약어 코드를 Apple MKLocalSearch가 잘 인식하는 국가명으로 변환합니다.
+    /// 매핑에 없는 코드는 원본 그대로 사용합니다.
+    private static func readableCountry(_ raw: String) -> String {
+        switch raw.uppercased() {
+        case "ENG":            return "England"
+        case "GBR", "GB":     return "United Kingdom"
+        case "SCO":            return "Scotland"
+        case "WAL":            return "Wales"
+        case "NIR":            return "Northern Ireland"
+        case "ESP":            return "Spain"
+        case "GER", "DEU":    return "Germany"
+        case "ITA":            return "Italy"
+        case "FRA":            return "France"
+        case "NED", "NLD":    return "Netherlands"
+        case "POR":            return "Portugal"
+        case "TUR":            return "Turkey"
+        case "BEL":            return "Belgium"
+        case "GRE":            return "Greece"
+        case "CZE":            return "Czech Republic"
+        case "DEN", "DNK":    return "Denmark"
+        case "USA", "US":     return "USA"
+        case "MEX":            return "Mexico"
+        case "BRA":            return "Brazil"
+        case "ARG":            return "Argentina"
+        case "JPN", "JP":     return "Japan"
+        case "KOR":            return "South Korea"
+        case "AUS":            return "Australia"
+        case "CAN":            return "Canada"
+        default:               return raw
+        }
     }
 }
 
@@ -388,6 +482,16 @@ struct APISportsBaseballScores: Codable {
 
 struct APISportsBaseballTeamScore: Codable {
     let total: Int?
+    let inning_1: Int?
+    let inning_2: Int?
+    let inning_3: Int?
+    let inning_4: Int?
+    let inning_5: Int?
+    let inning_6: Int?
+    let inning_7: Int?
+    let inning_8: Int?
+    let inning_9: Int?
+    let extra_innings: Int?
 }
 
 struct APISportsBaseballGameStatus: Codable {

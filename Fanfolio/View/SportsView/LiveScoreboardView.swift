@@ -14,12 +14,19 @@ struct LiveScoreboardView: View {
     let fixture: LiveFixture
     let sportType: SportType
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         VStack(spacing: 0) {
             headerBar
-            scoreRow
-            if !fixture.periods.isEmpty {
-                periodTable
+            if fixture.periods.isEmpty {
+                scoreRow
+            } else if fixture.periods.count <= 9 {
+                // 9이닝 이하: MLB처럼 스크롤 없이 한 화면에 전체 컬럼 표시
+                scoreRowInline
+            } else {
+                // 10이닝+: 기존 가로 스크롤 방식
+                scoreRowWithSyncedPeriodScroll
             }
         }
         .background(
@@ -31,7 +38,7 @@ struct LiveScoreboardView: View {
                 .strokeBorder(
                     fixture.isLive
                         ? Color.red.opacity(0.4)
-                        : Color.secondary.opacity(0.15),
+                        : GroupedCardChrome.outlineStrokeColor(colorScheme: colorScheme),
                     lineWidth: fixture.isLive ? 1.5 : 1
                 )
         )
@@ -46,7 +53,7 @@ struct LiveScoreboardView: View {
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
             
-            Text("·")
+            Text(verbatim: "·")
                 .foregroundStyle(.tertiary)
             
             // 상태 (LIVE 깜빡임 또는 예정 시간)
@@ -105,18 +112,162 @@ struct LiveScoreboardView: View {
         }
         .padding(.vertical, 4)
     }
+
+    // MARK: - 인라인 이닝 테이블 (9이닝 이하, 스크롤 없음)
+
+    /// MLB와 동일 구조: 팀명이 남은 공간을 차지하고 이닝 컬럼이 고정 너비로 나란히 붙음.
+    /// 9이닝 모두 한 화면에 표시되며, 연장전(10이닝+)에서는 scoreRowWithSyncedPeriodScroll 사용.
+    private var scoreRowInline: some View {
+        VStack(spacing: 0) {
+            teamScoreLine(team: fixture.homeTeam, score: fixture.score.home, isHome: true)
+            Divider().padding(.horizontal, 14)
+            teamScoreLine(team: fixture.awayTeam, score: fixture.score.away, isHome: false)
+            // 이닝 번호 라벨 행 (teamScoreLine의 레이아웃과 동일 구조)
+            HStack(spacing: 10) {
+                Color.clear.frame(width: 28, height: 1).accessibilityHidden(true)
+                Color.clear.frame(maxWidth: .infinity, minHeight: 1).accessibilityHidden(true)
+                HStack(spacing: 0) {
+                    ForEach(fixture.periods) { period in
+                        Text(verbatim: period.period)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.tertiary)
+                            .frame(width: periodColumnWidth, alignment: .center)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                }
+                Text(String(localized: "scoreboard.total", defaultValue: "합계"))
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 40, alignment: .trailing)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(Color.secondary.opacity(0.04))
+            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 16, bottomTrailingRadius: 16))
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// 피리어드 열이 많을 때 가로 스크롤로 한 번에 맞춤 (야구 연장 등)
+    private var scoreRowWithSyncedPeriodScroll: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 0) {
+                teamLeadingOnly(team: fixture.homeTeam, isHome: true)
+                Divider().padding(.horizontal, 14)
+                teamLeadingOnly(team: fixture.awayTeam, isHome: false)
+                HStack(spacing: 10) {
+                    Color.clear.frame(width: 28, height: 1).accessibilityHidden(true)
+                    Color.clear.frame(maxWidth: .infinity, minHeight: 1).accessibilityHidden(true)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+            }
+            .frame(maxWidth: 200, alignment: .leading)
+            .layoutPriority(1)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                VStack(spacing: 0) {
+                    HStack(spacing: 0) {
+                        ForEach(fixture.periods) { period in
+                            Text(verbatim: period.home.map { String($0) } ?? "-")
+                                .font(.caption)
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                                .frame(width: periodColumnWidth, alignment: .center)
+                        }
+                    }
+                    .padding(.vertical, 10)
+
+                    Divider()
+
+                    HStack(spacing: 0) {
+                        ForEach(fixture.periods) { period in
+                            Text(verbatim: period.away.map { String($0) } ?? "-")
+                                .font(.caption)
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                                .frame(width: periodColumnWidth, alignment: .center)
+                        }
+                    }
+                    .padding(.vertical, 10)
+
+                    HStack(spacing: 0) {
+                        ForEach(fixture.periods) { period in
+                            Text(verbatim: period.period)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.tertiary)
+                                .frame(width: periodColumnWidth, alignment: .center)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.secondary.opacity(0.04))
+                }
+            }
+            .layoutPriority(0)
+
+            VStack(spacing: 0) {
+                Text(verbatim: fixture.score.home.map { String($0) } ?? "-")
+                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(scoreHighlight(isHome: true))
+                    .frame(width: 40, alignment: .trailing)
+                    .padding(.vertical, 10)
+
+                Divider().padding(.horizontal, 4)
+
+                Text(verbatim: fixture.score.away.map { String($0) } ?? "-")
+                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(scoreHighlight(isHome: false))
+                    .frame(width: 40, alignment: .trailing)
+                    .padding(.vertical, 10)
+
+                Text(String(localized: "scoreboard.total", defaultValue: "합계"))
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 40, alignment: .trailing)
+                    .padding(.vertical, 6)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 4)
+        .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 16, bottomTrailingRadius: 16))
+    }
+
+    private func teamLeadingOnly(team: LiveTeamInfo, isHome: Bool) -> some View {
+        HStack(spacing: 10) {
+            teamLogo(team)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: liveFixtureTeamDisplayName(team.name))
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                if isHome {
+                    Text(String(localized: "scoreboard.side.home", defaultValue: "홈"))
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 10)
+    }
     
     private func teamScoreLine(team: LiveTeamInfo, score: Int?, isHome: Bool) -> some View {
         HStack(spacing: 10) {
-            teamLogo(url: team.logoURL)
+            teamLogo(team)
 
             // 팀명 열을 동일한 가변 폭으로 맞춰 홈/원정·헤더 행의 피리어드 열이 한 줄로 정렬됨
             VStack(alignment: .leading, spacing: 2) {
-                Text(team.name)
+                Text(verbatim: liveFixtureTeamDisplayName(team.name))
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                 if isHome {
-                    Text("홈")
+                    Text(String(localized: "scoreboard.side.home", defaultValue: "홈"))
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }
@@ -127,7 +278,7 @@ struct LiveScoreboardView: View {
                 HStack(spacing: 0) {
                     ForEach(fixture.periods) { period in
                         let val = isHome ? period.home : period.away
-                        Text(val.map { "\($0)" } ?? "-")
+                        Text(verbatim: val.map { String($0) } ?? "-")
                             .font(.caption)
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
@@ -136,7 +287,7 @@ struct LiveScoreboardView: View {
                 }
             }
 
-            Text(score.map { "\($0)" } ?? "-")
+            Text(verbatim: score.map { String($0) } ?? "-")
                 .font(.system(size: 22, weight: .heavy, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(scoreHighlight(isHome: isHome))
@@ -146,48 +297,17 @@ struct LiveScoreboardView: View {
         .padding(.vertical, 10)
     }
     
-    // MARK: - 피리어드 헤더 테이블
-    
-    private var periodTable: some View {
-        HStack(spacing: 10) {
-            // teamScoreLine과 동일: 로고(28) + 간격(10) + 팀명 가변열
-            Color.clear
-                .frame(width: 28, height: 1)
-                .accessibilityHidden(true)
-            Color.clear
-                .frame(maxWidth: .infinity, minHeight: 1)
-                .accessibilityHidden(true)
+    // MARK: - 헬퍼
 
-            HStack(spacing: 0) {
-                ForEach(fixture.periods) { period in
-                    Text(period.period)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.tertiary)
-                        .frame(width: periodColumnWidth, alignment: .center)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-            }
-
-            Text("합계")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.tertiary)
-                .frame(width: 40, alignment: .trailing)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
-        .background(Color.secondary.opacity(0.04))
-        .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 16, bottomTrailingRadius: 16))
+    private func liveFixtureTeamDisplayName(_ raw: String) -> String {
+        KBOTeamLogoAsset.uiDisplayName(forTeamName: raw, leagueCode: fixture.league.name == "KBO" ? "KBO" : nil)
     }
     
-    // MARK: - 헬퍼
-    
     private var periodColumnWidth: CGFloat {
-        // 피리어드 수에 따라 컬럼 너비 조정
         let count = fixture.periods.count
-        if count <= 4 { return 28 }
-        if count <= 9 { return 22 }
-        return 18
+        if count <= 4 { return 28 }   // NFL·농구: 4쿼터
+        if count <= 9 { return 14 }   // 야구 9이닝: 인라인 레이아웃에서 한 화면에 표시
+        return 18                      // 10이닝+: 스크롤 레이아웃
     }
     
     private func scoreHighlight(isHome: Bool) -> Color {
@@ -209,9 +329,16 @@ struct LiveScoreboardView: View {
         return formatter.string(from: date)
     }
     
-    private func teamLogo(url: String?) -> some View {
-        Group {
-            if let urlStr = url, let url = URL(string: urlStr) {
+    private func teamLogo(_ team: LiveTeamInfo) -> some View {
+        let assetName = fixture.league.name == "KBO"
+            ? KBOTeamLogoAsset.imageName(forTeamName: team.name)
+            : nil
+        return Group {
+            if let assetName {
+                Image(assetName)
+                    .resizable()
+                    .scaledToFit()
+            } else if let urlStr = team.logoURL, let url = URL(string: urlStr) {
                 KFImage.url(url)
                     .placeholder {
                         Image(systemName: "sportscourt")
@@ -260,6 +387,8 @@ struct LiveIndicator: View {
 struct UpcomingFixtureCard: View {
     let fixture: LiveFixture
     let sportType: SportType
+
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         VStack(spacing: 0) {
@@ -268,10 +397,10 @@ struct UpcomingFixtureCard: View {
                 Image(systemName: "clock.fill")
                     .font(.caption2)
                     .foregroundStyle(.blue)
-                Text("경기 예정")
+                Text(String(localized: "match.status.scheduledShort", defaultValue: "경기 예정"))
                     .font(.caption.bold())
                     .foregroundStyle(.blue)
-                Text("·")
+                Text(verbatim: "·")
                     .foregroundStyle(.tertiary)
                 Text(fixture.league.name)
                     .font(.caption)
@@ -290,7 +419,7 @@ struct UpcomingFixtureCard: View {
             
             // 팀 VS 팀
             HStack(spacing: 16) {
-                teamBlock(team: fixture.homeTeam, label: "홈")
+                teamBlock(team: fixture.homeTeam, label: String(localized: "scoreboard.side.home", defaultValue: "홈"))
                 
                 VStack(spacing: 4) {
                     Text(String(localized: "sports.card.vs", defaultValue: "VS"))
@@ -303,23 +432,35 @@ struct UpcomingFixtureCard: View {
                     }
                 }
                 
-                teamBlock(team: fixture.awayTeam, label: "원정")
+                teamBlock(team: fixture.awayTeam, label: String(localized: "teamInfo.away", defaultValue: "원정"))
             }
             .padding(16)
         }
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color.blue.opacity(0.2), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.blue.opacity(colorScheme == .light ? 0.32 : 0.22), lineWidth: 1)
         )
     }
     
+    private func upcomingFixtureTeamDisplayName(_ raw: String) -> String {
+        KBOTeamLogoAsset.uiDisplayName(forTeamName: raw, leagueCode: fixture.league.name == "KBO" ? "KBO" : nil)
+    }
+
     private func teamBlock(team: LiveTeamInfo, label: String) -> some View {
-        VStack(spacing: 6) {
-            if let url = team.logoURL, let imgURL = URL(string: url) {
+        let assetName = fixture.league.name == "KBO"
+            ? KBOTeamLogoAsset.imageName(forTeamName: team.name)
+            : nil
+        return VStack(spacing: 6) {
+            if let assetName {
+                Image(assetName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
+            } else if let url = team.logoURL, let imgURL = URL(string: url) {
                 KFImage.url(imgURL)
                     .placeholder {
                         Image(systemName: "sportscourt").foregroundStyle(.secondary)
@@ -331,11 +472,11 @@ struct UpcomingFixtureCard: View {
                     .scaledToFit()
                     .frame(width: 40, height: 40)
             }
-            Text(team.name)
+            Text(verbatim: upcomingFixtureTeamDisplayName(team.name))
                 .font(.subheadline.bold())
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
-            Text(label)
+            Text(verbatim: label)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }

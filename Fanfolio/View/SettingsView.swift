@@ -12,13 +12,15 @@ import UIKit
 
 struct SettingsView: View {
     @Environment(AuthService.self) private var authService
+    @Environment(StoreSubscriptionManager.self) private var storeSubscription
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.presentPaywall) private var presentPaywall
     
     @State private var editingName = false
     @State private var nameInput = ""
     @State private var showingLogoutAlert = false
     @State private var showingDeleteAccountAlert = false
-    
+
     // 프로필 사진
     @State private var selectedPhoto: PhotosPickerItem?
     @AppStorage("profileImageData") private var profileImageData: Data?
@@ -27,6 +29,7 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 profileSection
+                subscriptionSection
                 accountSection
                 aboutSection
             }
@@ -122,6 +125,41 @@ struct SettingsView: View {
             Text(String(localized: "settings.section.profile", defaultValue: "프로필"))
         }
     }
+
+    // MARK: - Fanfolio Pro (StoreKit 2)
+
+    private var subscriptionSection: some View {
+        Section {
+            if storeSubscription.isPro {
+                HStack {
+                    Label(String(localized: "subscription.status.active", defaultValue: "Fanfolio Pro"), systemImage: "checkmark.seal.fill")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Text(String(localized: "subscription.status.active.badge", defaultValue: "사용 중"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(String(localized: "subscription.features.summary", defaultValue: "맵 원정 경로 하이라이트, 공유 시 워터마크 제거, 고화질 내보내기"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        presentPaywall()
+                    } label: {
+                        Text(String(localized: "subscription.settings.openPaywall", defaultValue: "Fanfolio Pro 알아보기"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+        } header: {
+            Text(String(localized: "settings.section.subscription", defaultValue: "Fanfolio Pro"))
+        } footer: {
+            Text(String(localized: "settings.section.subscription.footer", defaultValue: "구독은 계정이 아닌 Apple ID에 연결됩니다. 앱스토어에서 구독을 관리할 수 있습니다."))
+        }
+    }
     
     // MARK: - 계정 섹션
     private var accountSection: some View {
@@ -199,6 +237,16 @@ struct SettingsView: View {
     // MARK: - 앱 정보 섹션
     private var aboutSection: some View {
         Section {
+            if let privacyURL = APIConfig.privacyPolicyURL {
+                Link(destination: privacyURL) {
+                    HStack {
+                        Text(String(localized: "settings.about.privacyPolicy", defaultValue: "개인정보 처리방침"))
+                        Spacer()
+                        Image(systemName: "arrow.up.right.square")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
             HStack {
                 Text(String(localized: "settings.about.version", defaultValue: "버전"))
                 Spacer()
@@ -234,5 +282,6 @@ struct SettingsView: View {
 #Preview {
     SettingsView()
         .environment(AuthService())
+        .environment(StoreSubscriptionManager.shared)
         .modelContainer(SportsPreviewSampleData.container)
 }

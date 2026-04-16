@@ -13,17 +13,13 @@ struct CategoryView: View {
     @Query(sort: \SportsFanFolder.orderIndex) private var sportsFolders: [SportsFanFolder]
     @Query(sort: \CultureFanFolder.orderIndex) private var cultureFolders: [CultureFanFolder]
     
-    @AppStorage("hasSeenFanfolioWelcome") private var hasSeenFanfolioWelcome = false
-    @State private var showWelcomeOnboarding = false
-    /// 환영 시트 표시 여부를 한 번만 결정 (쿼리 지연·재실행과 무관하게)
-    @State private var didRunWelcomePresentationGate = false
-    
     @State private var isSidebarVisible: Bool = false
     @State private var isTicketGallerySelected = false
     @State private var selectedSportsFolder: SportsFanFolder?
     @State private var selectedCultureFolder: CultureFanFolder?
     @State private var activeSection: ArchiveCategory = .sports
     @State private var hasRestoredState = false
+    @State private var showPaywall = false
     
     // 마지막 상태 저장
     @AppStorage("lastSection") private var savedSection: String = ArchiveCategory.sports.rawValue
@@ -117,42 +113,13 @@ struct CategoryView: View {
         .task {
             LegacyArchivePhotoMigration.runIfNeeded(in: modelContext)
         }
-        .task {
-            guard !didRunWelcomePresentationGate else { return }
-            didRunWelcomePresentationGate = true
-            guard !hasSeenFanfolioWelcome else { return }
-            // iCloud(CloudKit) 등으로 폴더가 늦게 내려오는 경우: 최대 ~6초간 0.5초마다 재확인 후에만 환영 시트 표시
-            for _ in 0..<12 {
-                if hasSeenFanfolioWelcome { return }
-                if !sportsFolders.isEmpty || !cultureFolders.isEmpty {
-                    hasSeenFanfolioWelcome = true
-                    return
-                }
-                try? await Task.sleep(for: .milliseconds(500))
-            }
-            guard !hasSeenFanfolioWelcome else { return }
-            showWelcomeOnboarding = true
+        .environment(\.presentPaywall) {
+            showPaywall = true
         }
-        .onChange(of: sportsFolders.count) { _, _ in
-            applyWelcomeEligibilityAfterFolderSync()
-        }
-        .onChange(of: cultureFolders.count) { _, _ in
-            applyWelcomeEligibilityAfterFolderSync()
-        }
-        .sheet(isPresented: $showWelcomeOnboarding) {
-            WelcomeOnboardingView()
-        }
-        .onChange(of: showWelcomeOnboarding) { _, isPresented in
-            if !isPresented { hasSeenFanfolioWelcome = true }
-        }
-    }
-
-    /// 동기화로 폴더가 채워지면 환영 시트를 취소하고, 기존 사용자로 간주합니다.
-    private func applyWelcomeEligibilityAfterFolderSync() {
-        guard !hasSeenFanfolioWelcome else { return }
-        if !sportsFolders.isEmpty || !cultureFolders.isEmpty {
-            hasSeenFanfolioWelcome = true
-            showWelcomeOnboarding = false
+        .sheet(isPresented: $showPaywall) {
+            ProSubscriptionView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
     }
 }
@@ -164,6 +131,8 @@ struct SidebarView: View {
     @Query(sort: \SavedTicket.createdAt, order: .reverse) private var savedTickets: [SavedTicket]
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
+    @Environment(StoreSubscriptionManager.self) private var storeSubscription
+    @Environment(\.presentPaywall) private var presentPaywall
     
     @Binding var isSidebarVisible: Bool
     @Binding var isTicketGallerySelected: Bool
@@ -197,6 +166,12 @@ struct SidebarView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // 프로필 영역
                 profileSection
+                
+                if !storeSubscription.isPro {
+                    sidebarProBanner
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
+                }
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 4) {
@@ -296,6 +271,37 @@ struct SidebarView: View {
         }
     }
     
+    // MARK: - Fanfolio Pro (사이드바)
+    private var sidebarProBanner: some View {
+        Button {
+            presentPaywall()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "crown.fill")
+                    .font(.title3)
+                    .foregroundStyle(.yellow.gradient)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "subscription.sidebar.pro.title", defaultValue: "Fanfolio Pro"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text(String(localized: "subscription.sidebar.pro.subtitle", defaultValue: "맵·공유·내보내기 잠금 해제"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.12))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+    
     // MARK: - 프로필
     private var profileSection: some View {
         Button {
@@ -384,7 +390,7 @@ struct SidebarView: View {
                     
                     Spacer()
                     
-                    Text("\(folder.matches.count)")
+                    Text(verbatim: "\(folder.matches.count)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     
@@ -459,7 +465,7 @@ struct SidebarView: View {
                     
                     Spacer()
                     
-                    Text("\(folder.events.count)")
+                    Text(verbatim: "\(folder.events.count)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     
@@ -508,7 +514,7 @@ struct SidebarView: View {
                 
                 Spacer()
                 
-                Text("\(savedTickets.count)")
+                Text(verbatim: "\(savedTickets.count)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 
@@ -534,6 +540,9 @@ struct MainContentView: View {
     var selectedCultureFolder: CultureFanFolder?
     var activeSection: ArchiveCategory
     
+    @Environment(StoreSubscriptionManager.self) private var storeSubscription
+    @Environment(\.presentPaywall) private var presentPaywall
+    
     private var navigationTitle: String {
         if isTicketGallerySelected {
             return String(localized: "ticket.gallery.navigationTitle", defaultValue: "티켓 갤러리")
@@ -553,9 +562,13 @@ struct MainContentView: View {
                 if isTicketGallerySelected {
                     TicketGalleryView()
                 } else if let folder = selectedSportsFolder {
+                    // 폴더(팀) 전환 시에도 트리 위치가 동일해 SwiftUI가 SportsView를 동일 인스턴스로 취급하면
+                    // @State(liveFixtures 등)가 유지되고 onAppear가 재호출되지 않을 수 있음 → 스코어보드가 이전 팀으로 남는 문제
                     SportsView(folder: folder)
+                        .id(folder.persistentModelID)
                 } else if let folder = selectedCultureFolder {
                     CultureView(folder: folder)
+                        .id(folder.persistentModelID)
                 } else {
                     switch activeSection {
                     case .sports:
@@ -587,6 +600,18 @@ struct MainContentView: View {
                         Image(systemName: "line.3.horizontal")
                             .font(.title2)
                             .foregroundColor(.primary)
+                    }
+                }
+                if !storeSubscription.isPro {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            presentPaywall()
+                        } label: {
+                            Image(systemName: "crown.fill")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.yellow)
+                        }
+                        .accessibilityLabel(String(localized: "subscription.toolbar.crown.a11y", defaultValue: "Fanfolio Pro 알아보기"))
                     }
                 }
             }
@@ -621,5 +646,6 @@ struct MainContentView: View {
     
     return CategoryView()
         .environment(auth)
+        .environment(StoreSubscriptionManager.shared)
         .modelContainer(SportsPreviewSampleData.container)
 }

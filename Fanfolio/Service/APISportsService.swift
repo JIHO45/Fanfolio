@@ -62,7 +62,6 @@ actor APISportsService {
     /// 이 목록에 포함된 리그만 API-Sports로 라이브 스코어를 조회한다.
     static let nonESPNLeagues: Set<String> = [
         "KBO",    // 한국 야구
-        "KBL",    // 한국 농구
         "ENG.1",  // EPL
         "ESP.1",  // 라리가
         "GER.1",  // 분데스리가
@@ -203,10 +202,16 @@ actor APISportsService {
         let cacheKey = "squad:\(sportType):\(teamID)"
         if let cached = squadCache.get(cacheKey) { return cached }
 
+        // 야구·농구: flat /players 포맷 (response[] 직접 배열)
+        if sportType == .baseball || sportType == .basketball {
+            return try await fetchPlayersFlat(sportType: sportType, teamID: teamID, cacheKey: cacheKey)
+        }
+
+        // 축구·미식축구: squad /players/squads 포맷 (response[].players[])
         let baseURL: String
         let path: String
-        var params: [String: String] = ["team": "\(teamID)"]
-        
+        let params: [String: String] = ["team": "\(teamID)"]
+
         switch sportType {
         case .americanFootball:
             baseURL = APIConfig.apiSportsURLs["NFL"] ?? ""
@@ -214,24 +219,44 @@ actor APISportsService {
         case .soccer:
             baseURL = APIConfig.apiSportsURLs["soccer"] ?? ""
             path = "/players/squads"
-        case .basketball:
-            baseURL = APIConfig.apiSportsURLs["NBA"] ?? ""
-            path = "/players"
-            params["season"] = currentSeason()
-        case .baseball:
-            baseURL = APIConfig.apiSportsURLs["MLB"] ?? ""
-            path = "/players"
-            params["season"] = currentSeason()
         default:
             throw APISportsError.noData
         }
-        
+
         guard let request = makeRequest(baseURL: baseURL, path: path, params: params) else {
             throw APISportsError.noAPIKey
         }
-        
         let response = try await fetch(APISportsSquadResponse.self, request: request)
         let players = response.response.first?.players ?? []
+        squadCache.set(cacheKey, value: players)
+        return players
+    }
+
+    /// 야구(MLB·KBO)·농구: flat `/players` 포맷 파서
+    private func fetchPlayersFlat(sportType: SportType, teamID: Int, cacheKey: String) async throws -> [APISportsSquadPlayer] {
+        let baseURL: String
+        switch sportType {
+        case .baseball:   baseURL = APIConfig.apiSportsURLs["MLB"] ?? ""
+        case .basketball: baseURL = APIConfig.apiSportsURLs["NBA"] ?? ""
+        default:          throw APISportsError.noData
+        }
+
+        let params: [String: String] = ["team": "\(teamID)", "season": currentSeason()]
+        guard let request = makeRequest(baseURL: baseURL, path: "/players", params: params) else {
+            throw APISportsError.noAPIKey
+        }
+
+        let resp = try await fetch(APISportsPlayersResponse.self, request: request)
+        let players: [APISportsSquadPlayer] = resp.response.map {
+            APISportsSquadPlayer(
+                id: $0.id,
+                name: $0.name,
+                age: $0.age,
+                number: $0.number.flatMap(Int.init),
+                position: $0.position,
+                photo: $0.photo
+            )
+        }
         squadCache.set(cacheKey, value: players)
         return players
     }

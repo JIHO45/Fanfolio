@@ -38,7 +38,7 @@ struct TicketCustomTextOverlay: View {
             if showsBranding {
                 HStack {
                     Spacer()
-                    Text("FANFOLIO")
+                    Text(String(localized: "matchTicket.brand", defaultValue: "FANFOLIO"))
                         .font(.system(size: 10, weight: .black))
                         .tracking(4.5)
                         .foregroundStyle(.white.opacity(0.50))
@@ -258,7 +258,7 @@ struct MatchTicketCardView: View {
             if model.showsBrandingWatermark {
                 HStack {
                     Spacer()
-                    Text("FANFOLIO")
+                    Text(String(localized: "matchTicket.brand", defaultValue: "FANFOLIO"))
                         .font(.system(size: 10, weight: .black))
                         .tracking(4.5)
                         .foregroundStyle(.white.opacity(0.50))
@@ -288,7 +288,7 @@ struct MatchTicketCardView: View {
                 VStack {
                     HStack {
                         Spacer()
-                        Text("FANFOLIO")
+                        Text(String(localized: "matchTicket.brand", defaultValue: "FANFOLIO"))
                             .font(.system(size: 10, weight: .black))
                             .tracking(4.5)
                             .foregroundStyle(.white.opacity(0.50))
@@ -336,9 +336,9 @@ struct MatchTicketCardView: View {
     private var scoreView: some View {
         if model.matchStatus == .completed {
             HStack(spacing: 6) {
-                Text("\(model.myTeamScore)")
+                Text(verbatim: "\(model.myTeamScore)")
                 Text("-").foregroundStyle(Color.black.opacity(0.4))
-                Text("\(model.opponentScore)")
+                Text(verbatim: "\(model.opponentScore)")
             }
             .font(.system(size: 28, weight: .black))
             .foregroundStyle(Color.black)

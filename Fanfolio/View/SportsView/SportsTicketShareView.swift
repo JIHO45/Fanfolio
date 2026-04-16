@@ -16,6 +16,7 @@ import CoreImage
 struct SportsTicketShareView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(StoreSubscriptionManager.self) private var storeSubscription
 
     let match: SportsModel
 
@@ -41,14 +42,19 @@ struct SportsTicketShareView: View {
     // 디자인 패널 펼침/접힘
     @State private var isDesignExpanded: Bool = true
 
-    // MARK: - ESPN 팀 데이터
+    // MARK: - 팀 데이터
 
     private var team1Data: ESPNTeam? {
         ESPNTeamsLoader.team(name: match.team1Display, leagueCode: match.folder?.leagueCode)
     }
     private var team2Data: ESPNTeam? {
-        ESPNTeamsLoader.team(name: match.opponentTeam, leagueCode: match.folder?.leagueCode)
+        let t = ESPNTeamsLoader.team(name: match.opponentTeam, leagueCode: match.folder?.leagueCode)
+        guard let t, !t.id.isESPNFakeID else { return nil }
+        return t
     }
+
+    /// KBO 상대팀 로고 URL (Firestore 캐시 조회, `loadStaticImages` 내에서 설정)
+    @State private var kboOpponentLogoURL: String? = nil
 
     // MARK: - Body
     var body: some View {
@@ -60,12 +66,12 @@ struct SportsTicketShareView: View {
                 )
             }
             .background(Color(red: 0.06, green: 0.06, blue: 0.08).ignoresSafeArea())
-            .navigationTitle("티켓 이미지 공유")
+            .navigationTitle(String(localized: "ticket.share.navigationTitle", defaultValue: "티켓 이미지 공유"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { dismiss() }
+                    Button(String(localized: "common.action.close", defaultValue: "닫기")) { dismiss() }
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 ToolbarItemGroup(placement: .confirmationAction) {
@@ -119,11 +125,11 @@ struct SportsTicketShareView: View {
                     FanfolioShareSheet(items: [shareImage])
                 }
             }
-            .alert("저장 실패", isPresented: Binding(
+            .alert(String(localized: "ticket.share.saveFailedTitle", defaultValue: "저장 실패"), isPresented: Binding(
                 get: { photoVM.saveErrorMessage != nil },
                 set: { if !$0 { photoVM.saveErrorMessage = nil } }
             )) {
-                Button("확인", role: .cancel) { photoVM.saveErrorMessage = nil }
+                Button(String(localized: "common.action.ok", defaultValue: "확인"), role: .cancel) { photoVM.saveErrorMessage = nil }
             } message: {
                 Text(photoVM.saveErrorMessage ?? "")
             }
@@ -217,9 +223,10 @@ struct SportsTicketShareView: View {
     }
 
     private func makeCardModel(showsBrandingWatermark: Bool) -> MatchTicketModel {
-        MatchTicketModel(
-            teamName: match.team1Display,
-            opponentTeam: match.team2Display,
+        let league = match.folder?.leagueCode
+        return MatchTicketModel(
+            teamName: KBOTeamLogoAsset.uiDisplayName(forTeamName: match.team1Display, leagueCode: league),
+            opponentTeam: KBOTeamLogoAsset.uiDisplayName(forTeamName: match.team2Display, leagueCode: league),
             myTeamScore: match.myTeamScore,
             opponentScore: match.opponentScore,
             matchResult: match.matchResult,
@@ -242,6 +249,7 @@ struct SportsTicketShareView: View {
         )
     }
 
+
     private var resolvedTeamColor: Color {
         if match.hasFavoriteTeam, let hex = match.folder?.teamColor {
             return Color.from(hex: hex) ?? .red
@@ -260,14 +268,14 @@ struct SportsTicketShareView: View {
                 }
             } label: {
                 HStack(spacing: 6) {
-                    Text("디자인")
+                    Text(String(localized: "ticket.share.design", defaultValue: "디자인"))
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.7))
 
                     // 현재 선택된 스타일 레이블 (접혔을 때 힌트)
                     if !isDesignExpanded {
                         HStack(spacing: 0) {
-                                Text("· ")
+                                Text(verbatim: "· ")
                                 Text(designStyle.label)
                         }
                         .font(.system(size: 12, weight: .medium))
@@ -335,7 +343,7 @@ struct SportsTicketShareView: View {
                     switch style {
                     case .standard:
                         VStack(spacing: 2) {
-                            Text("WIN")
+                            Text(String(localized: "ticket.share.win", defaultValue: "WIN"))
                                 .font(.system(size: 9, weight: .black))
                                 .foregroundStyle(.white)
                                 .padding(.top, 10)
@@ -349,7 +357,7 @@ struct SportsTicketShareView: View {
                     case .rotatedText:
                         ZStack {
                             HStack(spacing: 0) {
-                                Text("WIN")
+                                Text(String(localized: "ticket.share.win", defaultValue: "WIN"))
                                     .font(.system(size: 9, weight: .black))
                                     .foregroundStyle(.white)
                                     .rotationEffect(.degrees(-90))
@@ -477,7 +485,7 @@ struct SportsTicketShareView: View {
                         Image(systemName: "square.and.arrow.up")
                             .font(.system(size: 14, weight: .semibold))
                     }
-                    Text("공유")
+                    Text(String(localized: "ticket.share.action", defaultValue: "공유"))
                         .font(.system(size: 14, weight: .semibold))
                 }
                 .foregroundStyle(.white)
@@ -495,17 +503,34 @@ struct SportsTicketShareView: View {
     // MARK: - 정적 이미지 로드
 
     private func loadStaticImages() async {
-        let team1LogoURL = match.hasFavoriteTeam
-            ? match.folder?.teamLogoUrl
-            : team1Data?.logo_url
-        let team2LogoURL = team2Data?.logo_url
+        let isKBO = (match.folder?.leagueCode ?? "") == "KBO"
 
-        async let logoTask1 = loadURLOptional(team1LogoURL)
-        async let logoTask2 = loadURLOptional(team2LogoURL)
+        // 팀1 (내 팀): KBO 에셋 우선
+        if isKBO && match.hasFavoriteTeam,
+           let assetName = KBOTeamLogoAsset.imageName(forTeamName: match.team1Display),
+           let assetImg = UIImage(named: assetName) {
+            team1LogoImg = assetImg
+        } else {
+            let team1LogoURL = match.hasFavoriteTeam ? match.folder?.teamLogoUrl : team1Data?.logo_url
+            team1LogoImg = await loadURLOptional(team1LogoURL)
+        }
 
-        let (logo1, logo2) = await (logoTask1, logoTask2)
-        team1LogoImg = logo1
-        team2LogoImg = logo2
+        // 팀2 (상대팀): KBO 에셋 우선, 없으면 Firestore 조회 → SwiftData 저장값
+        if isKBO,
+           let assetName = KBOTeamLogoAsset.imageName(forTeamName: match.opponentTeam),
+           let assetImg = UIImage(named: assetName) {
+            team2LogoImg = assetImg
+        } else {
+            let resolvedKBOLogo: String?
+            if isKBO, team2Data == nil {
+                resolvedKBOLogo = await KBOFirestoreService.shared.resolveTeamLogoURL(forTeamName: match.opponentTeam)
+                kboOpponentLogoURL = resolvedKBOLogo
+            } else {
+                resolvedKBOLogo = nil
+            }
+            let team2LogoURL = team2Data?.logo_url ?? resolvedKBOLogo ?? match.opponentLogoURL
+            team2LogoImg = await loadURLOptional(team2LogoURL)
+        }
     }
 
     // MARK: - ImageRenderer 렌더링 (공유 버튼 탭 시에만 호출)
@@ -536,7 +561,7 @@ struct SportsTicketShareView: View {
 
     @MainActor
     private func buildImageForSharing() async -> UIImage? {
-        let isPro = FanfolioEntitlements.isPro
+        let isPro = storeSubscription.isPro
         let scale = isPro ? TicketImageExport.proShareRendererScale : TicketImageExport.freeShareRendererScale
         let model = makeCardModel(showsBrandingWatermark: !isPro)
         return renderTicketImage(model: model, scale: scale)
@@ -656,6 +681,7 @@ struct SportsTicketShareView: View {
     )
     match.folder = folder
     return SportsTicketShareView(match: match)
+        .environment(StoreSubscriptionManager.shared)
 }
 
 #Preview("공유 시트 - 49ers (NFL)") {
@@ -679,6 +705,7 @@ struct SportsTicketShareView: View {
     )
     match.folder = folder
     return SportsTicketShareView(match: match)
+        .environment(StoreSubscriptionManager.shared)
 }
 
 #Preview("공유 시트 - LG 트윈스 (KBO)") {
@@ -701,4 +728,5 @@ struct SportsTicketShareView: View {
     )
     match.folder = folder
     return SportsTicketShareView(match: match)
+        .environment(StoreSubscriptionManager.shared)
 }

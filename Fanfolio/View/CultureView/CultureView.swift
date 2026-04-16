@@ -51,9 +51,9 @@ struct CultureView: View {
         Group {
             if folder.events.isEmpty {
                 ContentUnavailableView(
-                    "기록이 없습니다",
+                    String(localized: "culture.list.emptyTitle", defaultValue: "기록이 없습니다"),
                     systemImage: folder.cultureType.iconName,
-                    description: Text("+ 버튼을 눌러 첫 관람을 기록해보세요!")
+                    description: Text(String(localized: "culture.list.emptyDescription", defaultValue: "+ 버튼을 눌러 첫 관람을 기록해보세요!"))
                 )
             } else {
                 ScrollView {
@@ -69,7 +69,7 @@ struct CultureView: View {
                         // 예정 이벤트 (상단)
                         if !upcomingEvents.isEmpty {
                             sectionHeader(
-                                title: "예정",
+                                title: String(localized: "sports.section.upcomingMatches", defaultValue: "예정"),
                                 iconName: "clock",
                                 count: upcomingEvents.count
                             )
@@ -82,7 +82,7 @@ struct CultureView: View {
                         // 완료된 이벤트
                         if !completedEvents.isEmpty {
                             sectionHeader(
-                                title: "완료",
+                                title: String(localized: "common.section.completed", defaultValue: "완료"),
                                 iconName: "checkmark.circle",
                                 count: completedEvents.count
                             )
@@ -99,12 +99,16 @@ struct CultureView: View {
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingAddEventSheet = true
-                } label: {
-                    Image(systemName: "plus")
+            ToolbarItem(placement: .bottomBar) {
+                HStack {
+                    Spacer(minLength: 0)
+                    Button {
+                        showingAddEventSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .sheet(isPresented: $showingAddEventSheet) {
@@ -130,7 +134,7 @@ struct CultureView: View {
                 Spacer()
                 
                 HStack(spacing: 4) {
-                    Text("자세히 보기")
+                    Text(String(localized: "common.action.viewDetails", defaultValue: "자세히 보기"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
@@ -144,18 +148,18 @@ struct CultureView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
                         .foregroundStyle(.yellow)
-                    Text("\(averageRating, format: .number.precision(.fractionLength(1)))")
+                    Text(averageRating, format: .number.precision(.fractionLength(1)))
                         .font(.system(size: 36, weight: .heavy, design: .rounded))
                         .foregroundStyle(.primary)
                 }
                 
-                Text("평균")
+                Text(String(localized: "culture.stats.average", defaultValue: "평균"))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
                 
                 Spacer()
                 
-                Text("\(totalCompleted)회 관람")
+                Text(String(format: String(localized: "culture.stats.visitsCount", defaultValue: "%lld회 관람"), locale: .autoupdatingCurrent, Int64(totalCompleted)))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
             }
@@ -189,8 +193,8 @@ struct CultureView: View {
             // 하단
             HStack(spacing: 0) {
                 HStack(spacing: 12) {
-                    ratingLabel(emoji: "5", text: "최고", count: completedEvents.filter { $0.rating == 5 }.count, color: .yellow)
-                    ratingLabel(emoji: "4+", text: "좋음", count: completedEvents.filter { $0.rating == 4 }.count, color: .orange)
+                    ratingLabel(emoji: "5", text: String(localized: "culture.rating.distribution.excellent", defaultValue: "최고"), count: completedEvents.filter { $0.rating == 5 }.count, color: .yellow)
+                    ratingLabel(emoji: "4+", text: String(localized: "culture.rating.distribution.good", defaultValue: "좋음"), count: completedEvents.filter { $0.rating == 4 }.count, color: .orange)
                 }
                 
                 Spacer()
@@ -214,19 +218,20 @@ struct CultureView: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 16)
     }
     
     // MARK: - 문화팬 칭호
-    private var cultureTitle: (emoji: String, title: LocalizedStringKey) {
+    private var cultureTitle: (emoji: String, title: String) {
         switch totalCompleted {
-        case 50...: return ("👑", "문화계의 왕")
-        case 30..<50: return ("🎭", "문화 마니아")
-        case 15..<30: return ("🌟", "열정적인 관객")
-        case 5..<15: return ("🎵", "문화 애호가")
-        default: return ("🎬", "문화 입문자")
+        case 50...: return ("👑", String(localized: "culture.fanTitle.king", defaultValue: "문화계의 왕"))
+        case 30..<50: return ("🎭", String(localized: "culture.fanTitle.maniac", defaultValue: "문화 마니아"))
+        case 15..<30: return ("🌟", String(localized: "culture.fanTitle.passionate", defaultValue: "열정적인 관객"))
+        case 5..<15: return ("🎵", String(localized: "culture.fanTitle.lover", defaultValue: "문화 애호가"))
+        default: return ("🎬", String(localized: "culture.fanTitle.beginner", defaultValue: "문화 입문자"))
         }
     }
     
@@ -235,20 +240,20 @@ struct CultureView: View {
             Image(systemName: "star.fill")
                 .font(.system(size: 8))
                 .foregroundStyle(color)
-            Text("\(count)")
+            Text(verbatim: "\(count)")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.primary)
         }
     }
     
     // MARK: - 섹션 헤더
-    private func sectionHeader(title: LocalizedStringKey, iconName: String, count: Int) -> some View {
+    private func sectionHeader(title: String, iconName: String, count: Int) -> some View {
         HStack {
             Label(title, systemImage: iconName)
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
             
-            Text("\(count)")
+            Text(verbatim: "\(count)")
                 .font(.caption2.bold())
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 6)
@@ -272,14 +277,14 @@ struct CultureView: View {
                 eventToDelete = event
                 showingDeleteEventAlert = true
             } label: {
-                Label("삭제", systemImage: "trash")
+                Label(String(localized: "common.action.delete", defaultValue: "삭제"), systemImage: "trash")
             }
         }
-        .alert("기록 삭제", isPresented: $showingDeleteEventAlert) {
-            Button("취소", role: .cancel) {
+        .alert(String(localized: "culture.deleteRecord.title", defaultValue: "기록 삭제"), isPresented: $showingDeleteEventAlert) {
+            Button(String(localized: "common.action.cancel", defaultValue: "취소"), role: .cancel) {
                 eventToDelete = nil
             }
-            Button("삭제", role: .destructive) {
+            Button(String(localized: "common.action.delete", defaultValue: "삭제"), role: .destructive) {
                 if let event = eventToDelete {
                     ArchivePhotoStore.delete(paths: event.photoPaths ?? [])
                     withAnimation {
@@ -290,7 +295,7 @@ struct CultureView: View {
             }
         } message: {
             if let event = eventToDelete {
-                Text("'\(event.title)' 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
+                Text(String(format: String(localized: "record.deleteConfirm", defaultValue: "‘%@’ 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."), locale: .autoupdatingCurrent, event.title))
             }
         }
     }
@@ -320,10 +325,14 @@ private struct CultureEventCard: View {
     }
     
     /// D-day 계산
+    /// from: .now 대신 startOfDay를 사용해야 24시간 미만이어도 "내일" 일정을 D-1로 표시
     private var dDayText: String? {
         guard event.eventStatus == .upcoming,
               let date = event.date else { return nil }
-        let days = Calendar.current.dateComponents([.day], from: .now, to: date).day ?? 0
+        let cal = Calendar.current
+        let startOfToday = cal.startOfDay(for: .now)
+        let startOfEventDay = cal.startOfDay(for: date)
+        let days = cal.dateComponents([.day], from: startOfToday, to: startOfEventDay).day ?? 0
         if days > 0 { return "D-\(days)" }
         if days == 0 { return "D-Day" }
         return nil
@@ -486,6 +495,7 @@ private struct CultureEventCard: View {
             .fill(ratingColor)
             .frame(width: 4)
         }
+        .groupedCardOutline(cornerRadius: 16)
     }
     
     private var ratingColor: Color {

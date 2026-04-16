@@ -75,7 +75,7 @@ struct CultureDetailView: View {
                 Button {
                     showingEditSheet = true
                 } label: {
-                    Text("편집")
+                    Text(String(localized: "common.action.edit", defaultValue: "편집"))
                 }
             }
         }
@@ -93,13 +93,13 @@ struct CultureDetailView: View {
             Image(systemName: "clock")
                 .foregroundStyle(.blue)
             
-            Text("예정")
+            Text(String(localized: "culture.detail.status.upcomingLabel", defaultValue: "예정"))
                 .font(.subheadline.bold())
                 .foregroundStyle(.blue)
             
             Spacer()
             
-            Text("편집 버튼을 눌러 관람 후 평가를 남겨보세요")
+            Text(String(localized: "culture.detail.editBanner.rating", defaultValue: "편집 버튼을 눌러 관람 후 평가를 남겨보세요"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -237,11 +237,11 @@ struct CultureDetailView: View {
                         HStack {
                             Image(systemName: "qrcode")
                                 .foregroundStyle(bandColor)
-                            Text("티켓 · QR코드")
+                            Text(String(localized: "ticket.detail.qrRow", defaultValue: "티켓 · QR코드"))
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text("탭하여 확대")
+                            Text(String(localized: "ticket.detail.tapToEnlarge", defaultValue: "탭하여 확대"))
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
@@ -273,11 +273,11 @@ struct CultureDetailView: View {
                         HStack {
                             Image(systemName: "camera.fill")
                                 .foregroundStyle(bandColor)
-                            Text("현장 사진")
+                            Text(String(localized: "ticket.section.venuePhotos", defaultValue: "현장 사진"))
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text("\(count)장")
+                            Text(String(format: String(localized: "ticket.photoCount", defaultValue: "%lld장"), locale: .autoupdatingCurrent, Int64(count)))
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
@@ -318,7 +318,7 @@ struct CultureDetailView: View {
                         HStack {
                             Image(systemName: "quote.opening")
                                 .foregroundStyle(bandColor)
-                            Text("메모")
+                            Text(String(localized: "ticket.section.memo", defaultValue: "메모"))
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                         }
@@ -334,7 +334,7 @@ struct CultureDetailView: View {
                 // 브랜딩 푸터
                 HStack {
                     Spacer()
-                    Text("Fanfolio")
+                    Text(String(localized: "ticket.brand.name", defaultValue: "Fanfolio"))
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.quaternary)
                         .tracking(1)
@@ -354,22 +354,26 @@ struct CultureDetailView: View {
     }
     
     // MARK: - 별점 라벨
-    private var ratingLabel: LocalizedStringKey {
+    private var ratingLabel: String {
         switch event.rating {
-        case 5: return "최고!"
-        case 4: return "좋았어요"
-        case 3: return "괜찮았어요"
-        case 2: return "아쉬워요"
-        case 1: return "별로"
+        case 5: return String(localized: "culture.rating.word.5", defaultValue: "최고!")
+        case 4: return String(localized: "culture.rating.word.4", defaultValue: "좋았어요")
+        case 3: return String(localized: "culture.rating.word.3", defaultValue: "괜찮았어요")
+        case 2: return String(localized: "culture.rating.word.2", defaultValue: "아쉬워요")
+        case 1: return String(localized: "culture.rating.word.1", defaultValue: "별로")
         default: return ""
         }
     }
     
     // MARK: - D-day
+    /// from: .now 대신 startOfDay를 사용해야 24시간 미만이어도 "내일" 일정을 D-1로 표시
     private var dDayText: String? {
         guard event.eventStatus == .upcoming,
               let date = event.date else { return nil }
-        let days = Calendar.current.dateComponents([.day], from: .now, to: date).day ?? 0
+        let cal = Calendar.current
+        let startOfToday = cal.startOfDay(for: .now)
+        let startOfEventDay = cal.startOfDay(for: date)
+        let days = cal.dateComponents([.day], from: startOfToday, to: startOfEventDay).day ?? 0
         if days > 0 { return "D-\(days)" }
         if days == 0 { return "D-Day" }
         return nil
@@ -411,7 +415,7 @@ struct CultureDetailView: View {
             HStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.body.weight(.semibold))
-                Text("티켓 이미지 공유하기")
+                Text(String(localized: "sports.detail.shareTicketImage", defaultValue: "티켓 이미지 공유하기"))
                     .font(.body.weight(.semibold))
             }
             .foregroundStyle(.white)

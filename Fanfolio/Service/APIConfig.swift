@@ -19,15 +19,14 @@ enum APIConfig {
     static let apiSportsURLs: [String: String] = [
         "NFL":    "https://v1.american-football.api-sports.io",
         "NBA":    "https://v2.nba.api-sports.io",
-        "MLB":    "https://v2.baseball.api-sports.io",
-        "KBO":    "https://v2.baseball.api-sports.io",
+        "MLB":    "https://v1.baseball.api-sports.io",
+        "KBO":    "https://v1.baseball.api-sports.io",
         "soccer": "https://v3.football.api-sports.io",
     ]
 
     // MARK: - 리그 ID 상수 (API-Sports)
     enum LeagueIDs {
-        static let kbo = 6
-        static let kbl = 7
+        static let kbo = 5
     }
 
     // MARK: - 시즌 기준 월
@@ -38,9 +37,29 @@ enum APIConfig {
         static let soccerStartMonth = 8
     }
 
+    // MARK: - Firebase / Firestore
+    /// Firebase 프로젝트 ID. APIKeys.xcconfig의 FIREBASE_PROJECT_ID로 주입.
+    static var firebaseProjectID: String {
+        Bundle.main.infoDictionary?["FIREBASE_PROJECT_ID"] as? String ?? ""
+    }
+    /// Firebase Web API 키 (공개 키, 앱에 포함 가능).
+    /// Firestore 보안 규칙으로 접근 범위를 제한하세요.
+    static var firebaseWebAPIKey: String {
+        Bundle.main.infoDictionary?["FIREBASE_WEB_API_KEY"] as? String ?? ""
+    }
+
     // MARK: - 캐시 TTL (초)
     enum CacheTTL {
         static let roster: TimeInterval   = 1800  // 30분
         static let schedule: TimeInterval = 3600  // 1시간
+    }
+
+    // MARK: - 정책 URL
+    /// `Info.plist`의 `PRIVACY_POLICY_URL`(`DeveloperSettings.xcconfig` 등에서 주입). 공백이면 nil.
+    static var privacyPolicyURL: URL? {
+        guard let raw = Bundle.main.infoDictionary?["PRIVACY_POLICY_URL"] as? String else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let url = URL(string: trimmed) else { return nil }
+        return url
     }
 }

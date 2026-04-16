@@ -10,17 +10,21 @@
 //  → LiveFixtureStatusTests.swift   — API 경기 상태 코드 변환
 //
 
+import Foundation
 import Testing
 @testable import Fanfolio
 
 // MARK: - SportType 피리어드 레이블 테스트
 
-/// `SportType.periodLabels(count:)` 메서드를 검증합니다.
+/// `SportType.periodLabels(count:locale:)` 메서드를 검증합니다.
 ///
 /// 종목마다 쿼터/이닝/세트의 표기 방식이 다릅니다.
 /// 이 테스트는 각 종목의 레이블이 올바른 형식으로 생성되는지 확인합니다.
 @Suite("SportType — 피리어드 레이블 생성")
 struct SportTypePeriodLabelsTests {
+
+    private let ko = Locale(identifier: "ko")
+    private let en = Locale(identifier: "en")
 
     @Test("미식축구 4쿼터 레이블")
     func nflFourQuarters() {
@@ -40,31 +44,40 @@ struct SportTypePeriodLabelsTests {
         #expect(labels == ["1Q", "2Q", "3Q", "4Q"])
     }
 
-    @Test("축구 2피리어드(전반·후반) 레이블")
+    @Test("축구 2피리어드 — ko: 전반·후반 / en: 1st half·2nd half")
     func soccerTwoPeriods() {
-        let labels = SportType.soccer.periodLabels(count: 2)
-        #expect(labels == ["전반", "후반"])
+        let koLabels = SportType.soccer.periodLabels(count: 2, locale: ko)
+        #expect(koLabels == ["전반", "후반"])
+        let enLabels = SportType.soccer.periodLabels(count: 2, locale: en)
+        #expect(enLabels == ["1st half", "2nd half"])
     }
 
-    @Test("축구 연장 포함 3피리어드: '연장1' 추가")
+    @Test("축구 연장 포함 3피리어드 — ko: 연장1 / en: OT1")
     func soccerWithExtraTime() {
-        let labels = SportType.soccer.periodLabels(count: 3)
-        #expect(labels == ["전반", "후반", "연장1"])
+        let koLabels = SportType.soccer.periodLabels(count: 3, locale: ko)
+        #expect(koLabels == ["전반", "후반", "연장1"])
+        let enLabels = SportType.soccer.periodLabels(count: 3, locale: en)
+        #expect(enLabels == ["1st half", "2nd half", "OT1"])
     }
 
-    @Test("야구 9이닝 레이블")
+    @Test("야구 9이닝 — ko: N회 / en: 숫자만")
     func baseballNineInnings() {
-        let labels = SportType.baseball.periodLabels(count: 9)
-        #expect(labels == ["1회","2회","3회","4회","5회","6회","7회","8회","9회"])
+        let koLabels = SportType.baseball.periodLabels(count: 9, locale: ko)
+        #expect(koLabels == ["1회","2회","3회","4회","5회","6회","7회","8회","9회"])
+        let enLabels = SportType.baseball.periodLabels(count: 9, locale: en)
+        #expect(enLabels == ["1","2","3","4","5","6","7","8","9"])
     }
 
     @Test("야구 count가 9 미만이어도 최소 9이닝 보장")
     func baseballMinimumNineInnings() {
         // count=3이어도 max(9, count) = 9
-        let labels = SportType.baseball.periodLabels(count: 3)
-        #expect(labels.count == 9)
-        #expect(labels.first == "1회")
-        #expect(labels.last  == "9회")
+        let labelsKo = SportType.baseball.periodLabels(count: 3, locale: ko)
+        #expect(labelsKo.count == 9)
+        #expect(labelsKo.first == "1회")
+        #expect(labelsKo.last == "9회")
+        let labelsEn = SportType.baseball.periodLabels(count: 3, locale: en)
+        #expect(labelsEn.first == "1")
+        #expect(labelsEn.last == "9")
     }
 
 }

@@ -99,7 +99,7 @@ struct PlayerDetailView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "heart.fill")
                             .font(.caption2)
-                        Text("최애 선수")
+                        Text(String(localized: "playerDetail.favorite", defaultValue: "최애 선수"))
                             .font(.caption2.bold())
                     }
                     .foregroundStyle(.white)
@@ -116,7 +116,7 @@ struct PlayerDetailView: View {
                         .shadow(color: .black.opacity(0.5), radius: 4)
 
                     if let num = player.number {
-                        Text("#\(num)")
+                        Text(verbatim: "#\(num)")
                             .font(.headline.bold())
                             .foregroundStyle(.white.opacity(0.85))
                             .padding(.horizontal, 8)
@@ -161,7 +161,7 @@ struct PlayerDetailView: View {
 
             VStack(spacing: 2) {
                 if let num = player.number, !num.isEmpty {
-                    Text("#\(num)")
+                    Text(verbatim: "#\(num)")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(teamColor.opacity(0.9))
                 }
@@ -219,9 +219,10 @@ struct PlayerDetailView: View {
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 16)
     }
 }
 

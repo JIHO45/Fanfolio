@@ -269,7 +269,7 @@ actor ESPNPlayerService {
         }
 
         let periodLabels = espnPeriodLabels(sport: sport)
-        var maxPeriods   = max(homeLines.count, awayLines.count)
+        let maxPeriods   = max(homeLines.count, awayLines.count)
 
         var periods: [PeriodScore] = []
         for i in 0..<maxPeriods {
@@ -581,8 +581,9 @@ actor ESPNPlayerService {
         return f3.date(from: dateStr)
     }
 
+    /// 리그 코드 → ESPN `sport` / `league` 경로 (스코어보드·로스터·순위 등 공통)
     // nonisolated: 순수 switch 함수로 actor 상태에 접근하지 않음
-    nonisolated private func teamSportPath(for code: String) -> (String, String)? {
+    nonisolated func teamSportPath(for code: String) -> (String, String)? {
         switch code {
         case "NFL":  return ("football",   "nfl")
         case "NBA":  return ("basketball", "nba")

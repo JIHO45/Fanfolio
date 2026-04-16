@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import SwiftData
 import Kingfisher
 
 struct SportsDetailView: View {
@@ -21,6 +20,9 @@ struct SportsDetailView: View {
     @State private var squadPlayers: [PlayerInfo] = []
     @State private var isLoadingSquad = false
     @State private var favorites = FavoritePlayersManager.shared
+
+    /// KBO 상대팀 로고 URL - Firestore 캐시에서 팀 이름으로 동적 조회 (ESPN처럼 SwiftData 무관)
+    @State private var kboOpponentLogoURL: String? = nil
 
     // MARK: - 라인업 포지션 필터 상태
     @State private var selectedGroup: PositionGroup? = nil
@@ -46,10 +48,20 @@ struct SportsDetailView: View {
     
     private var team1Name: String { match.team1Display }
     private var team2Name: String { match.team2Display }
+    private var team1NameUI: String {
+        KBOTeamLogoAsset.uiDisplayName(forTeamName: team1Name, leagueCode: match.folder?.leagueCode)
+    }
+    private var team2NameUI: String {
+        KBOTeamLogoAsset.uiDisplayName(forTeamName: team2Name, leagueCode: match.folder?.leagueCode)
+    }
     private var savedTickets: [SavedTicket] {
         match.savedTickets.sorted { $0.createdAt > $1.createdAt }
     }
     
+    private var isKBO: Bool {
+        (match.folder?.leagueCode ?? "") == "KBO"
+    }
+
     private var bandColor: Color {
         match.matchStatus == .completed
             ? match.matchResult.color
@@ -64,36 +76,15 @@ struct SportsDetailView: View {
         ESPNTeamsLoader.team(name: match.team1Display, leagueCode: match.folder?.leagueCode)
     }
     private var team2Data: ESPNTeam? {
-        ESPNTeamsLoader.team(name: match.opponentTeam, leagueCode: match.folder?.leagueCode)
+        let t = ESPNTeamsLoader.team(name: match.opponentTeam, leagueCode: match.folder?.leagueCode)
+        // fake ID(kbo_N 등)는 Wikipedia SVG라 로딩 안 됨 → nil 처리해서 opponentLogoURL로 폴백
+        guard let t, !t.id.isESPNFakeID else { return nil }
+        return t
     }
 
-    private var lineScoreLeagueTitle: String {
-        if let code = match.folder?.leagueCode, !code.isEmpty {
-            return LeagueInfo.displayNameString(for: code)
-        }
-        return sportType.displayName
-    }
-
-    private var lineScoreHomeLogoURL: String? {
-        match.isHomeGame
-            ? (match.hasFavoriteTeam ? match.folder?.teamLogoUrl : team1Data?.logo_url)
-            : team2Data?.logo_url
-    }
-
-    private var lineScoreAwayLogoURL: String? {
-        match.isHomeGame
-            ? team2Data?.logo_url
-            : (match.hasFavoriteTeam ? match.folder?.teamLogoUrl : team1Data?.logo_url)
-    }
-
-    private var importedLineScoreFixture: LiveFixture? {
-        LiveFixture.fromImportedArchive(
-            match: match,
-            sportType: sportType,
-            leagueDisplayName: lineScoreLeagueTitle,
-            homeLogoURL: lineScoreHomeLogoURL,
-            awayLogoURL: lineScoreAwayLogoURL
-        )
+    /// 상대팀 로고 URL: ESPN JSON → Firestore 동적 조회 → SwiftData 저장값 순으로 우선
+    private var resolvedOpponentLogoURL: String? {
+        team2Data?.logo_url ?? kboOpponentLogoURL ?? match.opponentLogoURL
     }
 
     var body: some View {
@@ -109,12 +100,6 @@ struct SportsDetailView: View {
                 ticketCard
                     .padding(.horizontal)
 
-                // 경기 불러오기로 저장된 이닝·쿼터 점수 (라이브 스코어보드와 동일 박스)
-                if let fixture = importedLineScoreFixture {
-                    LiveScoreboardView(fixture: fixture, sportType: sportType)
-                        .padding(.horizontal)
-                }
-                
                 // 완료된 경기: 공유 버튼
                 if match.matchStatus == .completed {
                     shareCallToAction
@@ -142,7 +127,7 @@ struct SportsDetailView: View {
                 Button {
                     showingEditSheet = true
                 } label: {
-                    Text("편집")
+                    Text(String(localized: "common.action.edit", defaultValue: "편집"))
                 }
             }
         }
@@ -159,11 +144,27 @@ struct SportsDetailView: View {
         .task(id: match.fanfolioMatchSquadTaskToken) {
             await loadSquadIfNeeded()
         }
+        .task(id: match.externalEventID) {
+            await fetchKBOOpponentLogoIfNeeded()
+        }
     }
     
     // MARK: - 선수단 로드
     // 미국 스포츠: ESPN 팀 로스터 → ESPN CDN 고화질 이미지
     // KBO·유럽 등: API-Sports 팀 로스터
+
+    /// KBO 경기의 상대팀 로고를 Firestore 캐시에서 팀 이름으로 조회합니다.
+    /// ESPN이 정적 JSON을 사용하듯, SwiftData 저장 여부와 무관하게 항상 로고를 가져옵니다.
+    private func fetchKBOOpponentLogoIfNeeded() async {
+        guard (match.folder?.leagueCode ?? "") == "KBO" else { return }
+        guard team2Data == nil else { return } // ESPN JSON이 이미 있으면 불필요
+        let name = match.opponentTeam
+        guard !name.isEmpty else { return }
+        let url = await KBOFirestoreService.shared.resolveTeamLogoURL(forTeamName: name)
+        if let url, !url.isEmpty {
+            await MainActor.run { kboOpponentLogoURL = url }
+        }
+    }
 
     private func loadSquadIfNeeded() async {
         guard match.matchStatus == .completed,
@@ -199,7 +200,7 @@ struct SportsDetailView: View {
             
             Spacer()
             
-            Text("편집 버튼을 눌러 경기 결과를 입력하세요")
+            Text(String(localized: "sports.detail.editBanner.hint", defaultValue: "편집 버튼을 눌러 경기 결과를 입력하세요"))
                 .font(.caption)
                 .foregroundStyle(match.matchStatus == .live ? .white.opacity(0.8) : .secondary)
         }
@@ -239,7 +240,9 @@ struct SportsDetailView: View {
                 
                 // 팀 매치업 — 로고 + 대형 타이포
                 VStack(spacing: 8) {
-                    if let url = match.hasFavoriteTeam ? match.folder?.teamLogoUrl : team1Data?.logo_url, !url.isEmpty {
+                    let team1AssetName = isKBO ? KBOTeamLogoAsset.imageName(forTeamName: team1Name) : nil
+                    let team1LogoURL = match.hasFavoriteTeam ? match.folder?.teamLogoUrl : team1Data?.logo_url
+                    if team1AssetName != nil || (team1LogoURL != nil && !(team1LogoURL?.isEmpty ?? true)) {
                         ZStack {
                             LinearGradient(
                                 colors: match.hasFavoriteTeam ? team1Gradient : (team1Data?.gradientColors ?? [.gray, .gray.opacity(0.7)]),
@@ -247,20 +250,27 @@ struct SportsDetailView: View {
                                 endPoint: .bottomTrailing
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 14))
-                            KFImage.url(URL(string: url))
-                                .placeholder { ProgressView().tint(.white) }
-                                .onFailureView {
-                                    Image(systemName: "photo")
-                                        .font(.title2)
-                                        .foregroundStyle(.white.opacity(0.8))
-                                }
-                                .resizable()
-                                .scaledToFit()
-                                .padding(12)
+                            if let assetName = team1AssetName {
+                                Image(assetName)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .padding(12)
+                            } else if let url = team1LogoURL, !url.isEmpty {
+                                KFImage.url(URL(string: url))
+                                    .placeholder { ProgressView().tint(.white) }
+                                    .onFailureView {
+                                        Image(systemName: "photo")
+                                            .font(.title2)
+                                            .foregroundStyle(.white.opacity(0.8))
+                                    }
+                                    .resizable()
+                                    .scaledToFit()
+                                    .padding(12)
+                            }
                         }
                         .frame(width: 64, height: 64)
                     }
-                    Text(team1Name)
+                    Text(team1NameUI)
                         .font(.system(size: 28, weight: .heavy, design: .rounded))
                         .multilineTextAlignment(.center)
                     Text(match.isHomeGame ? "HOME" : "AWAY")
@@ -273,7 +283,7 @@ struct SportsDetailView: View {
                 if match.matchStatus == .completed {
                     VStack(spacing: 10) {
                         HStack(spacing: 16) {
-                            Text("\(match.myTeamScore)")
+                            Text(verbatim: "\(match.myTeamScore)")
                                 .font(.system(size: 52, weight: .heavy, design: .rounded))
                                 .foregroundStyle(
                                     match.matchResult == .win ? match.matchResult.color : .primary
@@ -283,7 +293,7 @@ struct SportsDetailView: View {
                                 .font(.system(size: 28, weight: .medium, design: .rounded))
                                 .foregroundStyle(.quaternary)
                             
-                            Text("\(match.opponentScore)")
+                            Text(verbatim: "\(match.opponentScore)")
                                 .font(.system(size: 52, weight: .heavy, design: .rounded))
                                 .foregroundStyle(
                                     match.matchResult == .loss ? match.matchResult.color : .primary
@@ -299,34 +309,43 @@ struct SportsDetailView: View {
                             .clipShape(Capsule())
                     }
                 } else {
-                    Text("VS")
+                    Text(String(localized: "sports.card.vs", defaultValue: "VS"))
                         .font(.system(size: 40, weight: .heavy, design: .rounded))
                         .foregroundStyle(.quaternary)
                 }
                 
                 VStack(spacing: 8) {
-                    if let opp = team2Data {
+                    let team2AssetName = isKBO ? KBOTeamLogoAsset.imageName(forTeamName: team2Name) : nil
+                    let oppLogoURL = resolvedOpponentLogoURL
+                    if team2AssetName != nil || (oppLogoURL != nil && !(oppLogoURL?.isEmpty ?? true)) {
                         ZStack {
                             LinearGradient(
-                                colors: opp.gradientColors,
+                                colors: team2Data?.gradientColors ?? [.gray, .gray.opacity(0.7)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 14))
-                            KFImage.url(URL(string: opp.logo_url))
-                                .placeholder { ProgressView().tint(.white) }
-                                .onFailureView {
-                                    Image(systemName: "photo")
-                                        .font(.title2)
-                                        .foregroundStyle(.white.opacity(0.8))
-                                }
-                                .resizable()
-                                .scaledToFit()
-                                .padding(12)
+                            if let assetName = team2AssetName {
+                                Image(assetName)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .padding(12)
+                            } else if let logoURL = oppLogoURL, !logoURL.isEmpty {
+                                KFImage.url(URL(string: logoURL))
+                                    .placeholder { ProgressView().tint(.white) }
+                                    .onFailureView {
+                                        Image(systemName: "photo")
+                                            .font(.title2)
+                                            .foregroundStyle(.white.opacity(0.8))
+                                    }
+                                    .resizable()
+                                    .scaledToFit()
+                                    .padding(12)
+                            }
                         }
                         .frame(width: 64, height: 64)
                     }
-                    Text(team2Name)
+                    Text(team2NameUI)
                         .font(.system(size: 28, weight: .heavy, design: .rounded))
                         .multilineTextAlignment(.center)
                     Text(match.isHomeGame ? "AWAY" : "HOME")
@@ -381,11 +400,11 @@ struct SportsDetailView: View {
                         HStack {
                             Image(systemName: "qrcode")
                                 .foregroundStyle(bandColor)
-                            Text("티켓 · QR코드")
+                            Text(String(localized: "ticket.detail.qrRow", defaultValue: "티켓 · QR코드"))
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text("탭하여 확대")
+                            Text(String(localized: "ticket.detail.tapToEnlarge", defaultValue: "탭하여 확대"))
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
@@ -417,11 +436,11 @@ struct SportsDetailView: View {
                         HStack {
                             Image(systemName: "camera.fill")
                                 .foregroundStyle(bandColor)
-                            Text("직관 사진")
+                            Text(String(localized: "ticket.section.attendancePhotos", defaultValue: "직관 사진"))
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text("\(count)장")
+                            Text(String(format: String(localized: "ticket.photoCount", defaultValue: "%lld장"), locale: .autoupdatingCurrent, Int64(count)))
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
@@ -462,7 +481,7 @@ struct SportsDetailView: View {
                         HStack {
                             Image(systemName: "quote.opening")
                                 .foregroundStyle(bandColor)
-                            Text("메모")
+                            Text(String(localized: "ticket.section.memo", defaultValue: "메모"))
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                         }
@@ -478,7 +497,7 @@ struct SportsDetailView: View {
                 // 브랜딩 푸터
                 HStack {
                     Spacer()
-                    Text("Fanfolio")
+                    Text(String(localized: "ticket.brand.name", defaultValue: "Fanfolio"))
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.quaternary)
                         .tracking(1)
@@ -538,7 +557,7 @@ struct SportsDetailView: View {
         if isLoadingSquad {
             // 로딩 스켈레톤
             VStack(alignment: .leading, spacing: 14) {
-                Label("선수 하이라이트", systemImage: "star.fill")
+                Label(String(localized: "sports.detail.playerHighlights.loading", defaultValue: "선수 하이라이트"), systemImage: "star.fill")
                     .font(.subheadline.bold())
                 ForEach(0..<3, id: \.self) { _ in
                     HStack(spacing: 12) {
@@ -560,9 +579,10 @@ struct SportsDetailView: View {
             }
             .padding(20)
             .background(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(Color(uiColor: .secondarySystemBackground))
             )
+            .groupedCardOutline(cornerRadius: 20)
         } else if !squadPlayers.isEmpty {
             VStack(spacing: 12) {
                 // V.I.P. 섹션 (즐겨찾기 선수)
@@ -584,11 +604,11 @@ struct SportsDetailView: View {
     private func vipSection(players: [PlayerInfo], sportType: SportType) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("최애 선수 활약", systemImage: "star.fill")
+                Label(String(localized: "sports.detail.vip.headline", defaultValue: "최애 선수 활약"), systemImage: "star.fill")
                     .font(.subheadline.bold())
                     .foregroundStyle(.primary)
                 Spacer()
-                Text("V.I.P.")
+                Text(String(localized: "sports.detail.vip.badge", defaultValue: "V.I.P."))
                     .font(.caption.bold())
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
@@ -653,7 +673,7 @@ struct SportsDetailView: View {
                         .font(.subheadline.weight(.bold))
                         .lineLimit(1)
                     if let num = player.number {
-                        Text("#\(num)")
+                        Text(verbatim: "#\(num)")
                             .font(.caption2.bold())
                             .foregroundStyle(.white)
                             .padding(.horizontal, 5)
@@ -689,7 +709,7 @@ struct SportsDetailView: View {
 
     private func lineupSection(players: [PlayerInfo], sportType: SportType) -> some View {
         GroupedPlayerListCard(
-            title: "팀 라인업",
+            title: String(localized: "sports.detail.lineup.title", defaultValue: "팀 라인업"),
             players: players,
             sportType: sportType,
             teamColorHex: match.folder?.teamColor,
@@ -714,7 +734,7 @@ struct SportsDetailView: View {
             HStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.body.weight(.semibold))
-                Text("티켓 이미지 공유하기")
+                Text(String(localized: "sports.detail.shareTicketImage", defaultValue: "티켓 이미지 공유하기"))
                     .font(.body.weight(.semibold))
             }
             .foregroundStyle(.white)
@@ -728,10 +748,10 @@ struct SportsDetailView: View {
     private var savedTicketSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("저장한 티켓", systemImage: "ticket.fill")
+                Label(String(localized: "sports.detail.savedTickets", defaultValue: "저장한 티켓"), systemImage: "ticket.fill")
                     .font(.subheadline.bold())
                 Spacer()
-                Text("\(savedTickets.count)장")
+                Text(String(format: String(localized: "ticket.photoCount", defaultValue: "%lld장"), locale: .autoupdatingCurrent, Int64(savedTickets.count)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

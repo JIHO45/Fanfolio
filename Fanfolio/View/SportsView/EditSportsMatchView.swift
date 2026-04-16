@@ -46,7 +46,13 @@ struct EditSportsMatchView: View {
     private var hasFavoriteTeam: Bool { match.folder?.teamLogoUrl != nil }
     private var team1Name: String { hasFavoriteTeam ? (match.folder?.displayName ?? String(localized: "sports.match.myTeam", defaultValue: "내 팀")) : team1 }
     private var team2Name: String { opponentTeam }
-    
+    private var team1NameUI: String {
+        KBOTeamLogoAsset.uiDisplayName(forTeamName: team1Name, leagueCode: match.folder?.leagueCode)
+    }
+    private var team2NameUI: String {
+        KBOTeamLogoAsset.uiDisplayName(forTeamName: team2Name, leagueCode: match.folder?.leagueCode)
+    }
+
     /// 폴더에 리그가 있으면 같은 리그 팀 목록 (응원 팀 선택 시에만 내 팀 제외)
     private var opponentTeams: [ESPNTeam] {
         guard let folder = match.folder, let code = folder.leagueCode else { return [] }
@@ -117,12 +123,12 @@ struct EditSportsMatchView: View {
                 if opponentTeam == newTeam1 { opponentTeam = "" }
             }
             .sheet(isPresented: $showingMyScorePickerSheet) {
-                ScorePickerSheet(title: team1Name, selection: $myTeamScore, range: scoreRange, onConfirm: {
+                ScorePickerSheet(title: team1NameUI, selection: $myTeamScore, range: scoreRange, onConfirm: {
                     showingMyScorePickerSheet = false
                 })
             }
             .sheet(isPresented: $showingOpponentScorePickerSheet) {
-                ScorePickerSheet(title: String(localized: "sports.match.opponentTeam", defaultValue: "상대 팀"), selection: $opponentScore, range: scoreRange, onConfirm: {
+                ScorePickerSheet(title: team2NameUI, selection: $opponentScore, range: scoreRange, onConfirm: {
                     showingOpponentScorePickerSheet = false
                 })
             }
@@ -153,7 +159,7 @@ extension EditSportsMatchView {
                 HStack {
                     Text(String(localized: "sports.match.myTeam", defaultValue: "내 팀"))
                     Spacer()
-                    Text(team1Name)
+                    Text(team1NameUI)
                         .foregroundStyle(.secondary)
                 }
                 teamPickerGrid(teams: opponentTeams, selection: $opponentTeam, label: String(localized: "sports.match.opponentTeam", defaultValue: "상대 팀"))
@@ -259,9 +265,9 @@ extension EditSportsMatchView {
                 showingMyScorePickerSheet = true
             } label: {
                 HStack {
-                    Text(team1Name)
+                    Text(team1NameUI)
                     Spacer()
-                    Text("\(myTeamScore)")
+                    Text(verbatim: "\(myTeamScore)")
                         .foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
                         .font(.caption2)
@@ -274,9 +280,9 @@ extension EditSportsMatchView {
                 showingOpponentScorePickerSheet = true
             } label: {
                 HStack {
-                    Text(team2Name)
+                    Text(team2NameUI)
                     Spacer()
-                    Text("\(opponentScore)")
+                    Text(verbatim: "\(opponentScore)")
                         .foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
                         .font(.caption2)

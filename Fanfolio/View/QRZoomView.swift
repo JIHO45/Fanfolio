@@ -36,7 +36,7 @@ struct QRZoomView: View {
                     }
                 }
                 
-                Text("입장 시 이 QR을 스캔하세요")
+                Text(String(localized: "qr.zoom.hint", defaultValue: "입장 시 이 QR을 스캔하세요"))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
                 

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import os.log
 
 struct MatchListView: View {
     let folder: SportsFanFolder
@@ -20,6 +21,11 @@ struct MatchListView: View {
     @State private var errorMessage: String? = nil
     @State private var savingEventIDs: Set<String> = []
     @State private var justSavedIDs: Set<String> = []
+    /// 더보기: true이면 5개 제한 해제
+    @State private var showAllPast = false
+    @State private var showAllUpcoming = false
+
+    private static let listLimit = 5
 
     enum EventTab: String, CaseIterable {
         case past     = "past"
@@ -37,27 +43,38 @@ struct MatchListView: View {
         Set(folder.matches.compactMap { $0.externalEventID })
     }
 
-    // 완료 + 진행 중 경기: 진행 중을 맨 위로, 나머지는 최신순 최대 5개
-    private var pastEvents: [MatchEvent] {
+    // 완료 + 진행 중 경기: 진행 중을 맨 위로, 나머지는 최신순
+    // 점수가 없는 완료 경기는 제외 (Firestore에 null 스코어가 있는 경기는 불러오기 의미 없음)
+    private var allPastEvents: [MatchEvent] {
         allEvents
-            .filter { $0.isCompleted || $0.isLive }
+            .filter {
+                if $0.isLive { return true }
+                return $0.isCompleted && ($0.myScore != nil || $0.opponentScore != nil)
+            }
             .sorted {
-                // 진행 중 경기를 항상 맨 위로
                 if $0.isLive != $1.isLive { return $0.isLive }
                 return ($0.date ?? .distantPast) > ($1.date ?? .distantPast)
             }
-            .prefix(5)
-            .map { $0 }
     }
 
-    // 예정 경기: 진행 중 제외, 날짜 빠른 순 최대 5개
-    private var upcomingEvents: [MatchEvent] {
+    private var pastEvents: [MatchEvent] {
+        showAllPast ? allPastEvents : Array(allPastEvents.prefix(Self.listLimit))
+    }
+
+    private var hasMorePast: Bool { allPastEvents.count > Self.listLimit }
+
+    // 예정 경기: 진행 중 제외, 날짜 빠른 순
+    private var allUpcomingEvents: [MatchEvent] {
         allEvents
             .filter { !$0.isCompleted && !$0.isLive }
             .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
-            .prefix(5)
-            .map { $0 }
     }
+
+    private var upcomingEvents: [MatchEvent] {
+        showAllUpcoming ? allUpcomingEvents : Array(allUpcomingEvents.prefix(Self.listLimit))
+    }
+
+    private var hasMoreUpcoming: Bool { allUpcomingEvents.count > Self.listLimit }
 
     private var displayedEvents: [MatchEvent] {
         selectedTab == .past ? pastEvents : upcomingEvents
@@ -100,6 +117,10 @@ struct MatchListView: View {
             .pickerStyle(.segmented)
             .padding(.horizontal)
             .padding(.vertical, 12)
+            .onChange(of: selectedTab) {
+                showAllPast = false
+                showAllUpcoming = false
+            }
 
             if displayedEvents.isEmpty {
                 emptyView
@@ -125,21 +146,74 @@ struct MatchListView: View {
                     }
                 }
             } header: {
-                Text(
-                    selectedTab == .past
-                        ? String(localized: "matchImport.section.recentResults", defaultValue: "최근 경기 결과 (최대 5경기)")
-                        : String(localized: "matchImport.section.upcomingSchedule", defaultValue: "예정 경기 일정 (최대 5경기)")
-                )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                let isPast = selectedTab == .past
+                let totalCount = isPast ? allPastEvents.count : allUpcomingEvents.count
+                let showing = isPast ? pastEvents.count : upcomingEvents.count
+                let showAll = isPast ? showAllPast : showAllUpcoming
+
+                Group {
+                    if totalCount > Self.listLimit && !showAll {
+                        Text(
+                            isPast
+                                ? String(
+                                    format: String(localized: "matchImport.section.recentResultsCount", defaultValue: "최근 경기 결과 (%d/%d경기)"),
+                                    showing, totalCount
+                                )
+                                : String(
+                                    format: String(localized: "matchImport.section.upcomingScheduleCount", defaultValue: "예정 경기 일정 (%d/%d경기)"),
+                                    showing, totalCount
+                                )
+                        )
+                    } else {
+                        Text(
+                            isPast
+                                ? String(localized: "matchImport.section.recentResults", defaultValue: "최근 경기 결과 (최대 5경기)")
+                                : String(localized: "matchImport.section.upcomingSchedule", defaultValue: "예정 경기 일정 (최대 5경기)")
+                        )
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             } footer: {
-                Text(
-                    selectedTab == .past
-                        ? String(localized: "matchImport.footer.pastHint", defaultValue: "경기를 탭하면 내 아카이브에 추가됩니다. 이미 추가된 경기는 체크 표시됩니다.")
-                        : String(localized: "matchImport.footer.upcomingHint", defaultValue: "예정 경기를 탭하면 내 일정에 추가됩니다. 경기 후 결과를 직접 입력하세요.")
-                )
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(
+                        selectedTab == .past
+                            ? String(localized: "matchImport.footer.pastHint", defaultValue: "경기를 탭하면 내 아카이브에 추가됩니다. 이미 추가된 경기는 체크 표시됩니다.")
+                            : String(localized: "matchImport.footer.upcomingHint", defaultValue: "예정 경기를 탭하면 내 일정에 추가됩니다. 경기 후 결과를 직접 입력하세요.")
+                    )
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+
+                    if selectedTab == .past && hasMorePast && !showAllPast {
+                        Button {
+                            withAnimation { showAllPast = true }
+                        } label: {
+                            Label(
+                                String(
+                                    format: String(localized: "matchImport.footer.showMore", defaultValue: "경기 더 보기 (%d경기)"),
+                                    allPastEvents.count - Self.listLimit
+                                ),
+                                systemImage: "chevron.down.circle"
+                            )
+                            .font(.caption.bold())
+                        }
+                        .buttonStyle(.borderless)
+                    } else if selectedTab == .upcoming && hasMoreUpcoming && !showAllUpcoming {
+                        Button {
+                            withAnimation { showAllUpcoming = true }
+                        } label: {
+                            Label(
+                                String(
+                                    format: String(localized: "matchImport.footer.showMore", defaultValue: "경기 더 보기 (%d경기)"),
+                                    allUpcomingEvents.count - Self.listLimit
+                                ),
+                                systemImage: "chevron.down.circle"
+                            )
+                            .font(.caption.bold())
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
             }
         }
         .listStyle(.insetGrouped)
@@ -240,23 +314,47 @@ struct MatchListView: View {
                 )
             }
         } else if leagueCode == "KBO", let teamID = folder.apiSportsTeamID {
-            if APIConfig.apiSportsKey.isEmpty {
-                errorMessage = String(localized: "api.error.noAPIKey", defaultValue: "API 키가 설정되지 않았습니다. 프로젝트 루트에서 APIKeys.xcconfig.example을 복사해 APIKeys.xcconfig를 만들고 API_SPORTS_KEY를 넣은 뒤 다시 빌드하세요.")
-            } else if APIRateLimiter.shared.isLimitReached {
-                errorMessage = String(localized: "api.error.dailyLimitExceeded", defaultValue: "오늘 API 호출 한도(100회)를 초과했습니다. 내일 다시 시도해주세요.")
-            } else {
-                do {
-                    allEvents = try await APISportsService.shared.fetchKBOSchedule(teamID: teamID)
-                } catch {
-                    errorMessage = String(
-                    format: String(localized: "matchImport.error.loadFailedFormat", defaultValue: "경기 목록을 불러오지 못했습니다.\n%@"),
-                    locale: .autoupdatingCurrent,
-                    error.localizedDescription
-                )
-                }
-            }
+            await loadKBOSchedule(teamID: teamID)
         } else {
             errorMessage = String(localized: "matchImport.error.unsupportedLeague", defaultValue: "이 리그는 경기 불러오기를 지원하지 않습니다.\n(지원: NFL·NBA·MLB·EPL 등 ESPN 리그, KBO)")
+        }
+    }
+
+    // MARK: - KBO 경기 로드 (Firestore 우선 → API-Sports 폴백)
+
+    private func loadKBOSchedule(teamID: Int) async {
+        // 1) Firestore 우선 (인메모리 캐시 3시간, Firestore 읽기 요금 최소화)
+        if !APIConfig.firebaseProjectID.isEmpty {
+            do {
+                let events = try await KBOFirestoreService.shared.fetchKBOSchedule(teamID: teamID)
+                if !events.isEmpty {
+                    allEvents = events
+                    return
+                }
+                // Firestore에 데이터 없으면 폴백
+            } catch {
+                // Firestore 실패 시 폴백 시도 (로그만 남기고 에러 표시 안 함)
+                Logger.api.warning("KBOFirestore 실패, API-Sports로 폴백: \(error.localizedDescription)")
+            }
+        }
+
+        // 2) API-Sports 폴백
+        if APIConfig.apiSportsKey.isEmpty {
+            errorMessage = String(localized: "api.error.noAPIKey", defaultValue: "API 키가 설정되지 않았습니다. 프로젝트 루트에서 APIKeys.xcconfig.example을 복사해 APIKeys.xcconfig를 만들고 API_SPORTS_KEY를 넣은 뒤 다시 빌드하세요.")
+            return
+        }
+        if APIRateLimiter.shared.isLimitReached {
+            errorMessage = String(localized: "api.error.dailyLimitExceeded", defaultValue: "오늘 API 호출 한도(100회)를 초과했습니다. 내일 다시 시도해주세요.")
+            return
+        }
+        do {
+            allEvents = try await APISportsService.shared.fetchKBOSchedule(teamID: teamID)
+        } catch {
+            errorMessage = String(
+                format: String(localized: "matchImport.error.loadFailedFormat", defaultValue: "경기 목록을 불러오지 못했습니다.\n%@"),
+                locale: .autoupdatingCurrent,
+                error.localizedDescription
+            )
         }
     }
 
@@ -328,7 +426,7 @@ private struct EventRow: View {
                 statusBadge
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("vs \(event.opponentName)")
+                    Text(String(format: String(localized: "matchImport.vsPrefix", defaultValue: "vs %@"), locale: .autoupdatingCurrent, KBOTeamLogoAsset.uiDisplayName(forTeamName: event.opponentName, leagueCode: folder.leagueCode)))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
@@ -345,22 +443,22 @@ private struct EventRow: View {
                         if (event.isCompleted || event.isLive),
                            let my = event.myScore,
                            let opp = event.opponentScore {
-                            Text("·").font(.caption).foregroundStyle(.tertiary)
-                            Text("\(my) - \(opp)")
+                            Text(verbatim: "·").font(.caption).foregroundStyle(.tertiary)
+                            Text(verbatim: "\(my) - \(opp)")
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(event.isLive ? .red : .secondary)
                         }
 
                         if !event.isCompleted && !event.isLive {
-                            Text("·").font(.caption).foregroundStyle(.tertiary)
-                            Text(event.isHome ? "홈" : "원정")
+                            Text(verbatim: "·").font(.caption).foregroundStyle(.tertiary)
+                            Text(event.isHome ? String(localized: "teamInfo.home", defaultValue: "홈") : String(localized: "teamInfo.away", defaultValue: "원정"))
                                 .font(.caption.bold())
                                 .foregroundStyle(.blue)
                         }
 
                         if let league = event.leagueName {
-                            Text("·").font(.caption).foregroundStyle(.tertiary)
-                            Text(LeagueInfo.displayName(for: league))
+                            Text(verbatim: "·").font(.caption).foregroundStyle(.tertiary)
+                            Text(LeagueInfo.displayNameString(for: league))
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                                 .lineLimit(1)
@@ -405,7 +503,7 @@ private struct EventRow: View {
                     Circle()
                         .fill(.red)
                         .frame(width: 6, height: 6)
-                    Text("LIVE")
+                    Text(String(localized: "match.row.live", defaultValue: "LIVE"))
                         .font(.system(size: 8, weight: .black))
                         .foregroundStyle(.red)
                 }
@@ -465,6 +563,7 @@ extension MatchEvent {
             importedPeriodScoresData: periodData
         )
         model.folder = folder
+        model.opponentLogoURL = opponentLogoURL
         return model
     }
 }

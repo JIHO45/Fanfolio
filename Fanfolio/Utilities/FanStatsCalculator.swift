@@ -23,6 +23,8 @@ struct MatchStatDTO {
     var opponentTeam: String
     var myTeamScore: Int
     var opponentScore: Int
+    /// `FanStatsView` 등 폴더 단위 계산 시 KBO UI 표기에 사용.
+    var leagueCode: String?
 
     /// 메인 스레드에서만 호출 (SwiftData @Model 접근).
     init(from match: SportsModel) {
@@ -33,6 +35,7 @@ struct MatchStatDTO {
         self.opponentTeam = match.opponentTeam
         self.myTeamScore = match.myTeamScore
         self.opponentScore = match.opponentScore
+        self.leagueCode = match.folder?.leagueCode
     }
 }
 
@@ -167,13 +170,23 @@ struct FanStatsCalculator {
         let grouped = Dictionary(grouping: completed, by: { $0.opponentTeam })
         return grouped.map { opponent, list in
             OpponentRecord(
-                name:   opponent,
+                name:   kboOpponentDisplayName(opponent),
                 wins:   list.filter { $0.matchResult == .win  }.count,
                 losses: list.filter { $0.matchResult == .loss }.count,
                 draws:  list.filter { $0.matchResult == .draw }.count
             )
         }
         .sorted { $0.total > $1.total }
+    }
+
+    /// 데이터에 KBO 경기가 하나라도 있으면 상대 이름을 짧은 KBO 표기로 바꿉니다.
+    private var isKBOStatsContext: Bool {
+        data.contains { $0.leagueCode == "KBO" }
+    }
+
+    private func kboOpponentDisplayName(_ raw: String) -> String {
+        guard isKBOStatsContext else { return raw }
+        return KBOTeamLogoAsset.uiDisplayName(forKBOCandidate: raw)
     }
 
     /// 백그라운드에서 호출해 한 번에 결과를 반환. 뷰는 이 결과만 바인딩.
@@ -270,6 +283,27 @@ struct OpponentRecord: Identifiable {
     var winRate: Double {
         guard total > 0 else { return 0 }
         return Double(wins) / Double(total) * 100
+    }
+
+    /// 구장 핀·`WinRateTierPalette`와 동일: `승 ÷ (승+패) × 100`.
+    /// 승·패가 없고 무승부만 있으면 중립값 45 (팔레트 fair 구간).
+    var decisiveWinRatePercentForPalette: Double {
+        let decisive = wins + losses
+        if decisive > 0 {
+            return Double(wins) / Double(decisive) * 100
+        }
+        if total > 0 { return 45 }
+        return 0
+    }
+
+    /// 상대별 리스트·승률 % 표기. 결정승률이 있으면 정수 %, 무승부만이면 "—".
+    var winRatePercentDisplayString: String {
+        let decisive = wins + losses
+        guard decisive > 0 else {
+            return total > 0 ? "—" : "0%"
+        }
+        let pct = Double(wins) / Double(decisive) * 100
+        return "\(Int(pct.rounded()))%"
     }
 }
 
@@ -369,27 +403,30 @@ extension FanStatsCalculator {
         if let bigWin = wins.max(by: {
             ($0.myTeamScore - $0.opponentScore) < ($1.myTeamScore - $1.opponentScore)
         }), (bigWin.myTeamScore - bigWin.opponentScore) >= 3 {
+            let opp = kboOpponentDisplayName(bigWin.opponentTeam)
             return SeasonHighlight(
                 emoji:    "⚡️",
                 title:    String(localized: "sports.stats.highlight.bestWin", defaultValue: "최고의 승리"),
-                subtitle: "vs \(bigWin.opponentTeam) · \(bigWin.myTeamScore)-\(bigWin.opponentScore)"
+                subtitle: "vs \(opp) · \(bigWin.myTeamScore)-\(bigWin.opponentScore)"
             )
         }
 
         if let shutout = wins.first(where: { $0.opponentScore == 0 }) {
+            let opp = kboOpponentDisplayName(shutout.opponentTeam)
             return SeasonHighlight(
                 emoji:    "🛡️",
                 title:    String(localized: "sports.stats.highlight.shutout", defaultValue: "완봉승"),
-                subtitle: "vs \(shutout.opponentTeam) · \(shutout.myTeamScore)-0"
+                subtitle: "vs \(opp) · \(shutout.myTeamScore)-0"
             )
         }
 
         if let highScore = completed.max(by: { $0.myTeamScore < $1.myTeamScore }),
            highScore.myTeamScore > 0 {
+            let opp = kboOpponentDisplayName(highScore.opponentTeam)
             return SeasonHighlight(
                 emoji:    "🎯",
                 title:    String(localized: "sports.stats.highlight.mostGoals", defaultValue: "최다 득점"),
-                subtitle: "vs \(highScore.opponentTeam) · \(highScore.myTeamScore)-\(highScore.opponentScore)"
+                subtitle: "vs \(opp) · \(highScore.myTeamScore)-\(highScore.opponentScore)"
             )
         }
 

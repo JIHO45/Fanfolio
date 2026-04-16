@@ -10,29 +10,35 @@ import Kingfisher
 
 struct FanStatsView: View {
     let folder: SportsFanFolder
-    
+
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(StoreSubscriptionManager.self) private var storeSubscription
+
     @State private var showingSharePreviewSheet = false
     @State private var statsResult: FanStatsResult?
     @State private var isComputing = false
 
     private var rateColor: Color {
         guard let r = statsResult else { return .secondary }
-        return r.winRate >= 50 ? .green : (r.winRate >= 30 ? .orange : .red)
+        return WinRateTierPalette.accentColor(
+            forPercent: r.winRate,
+            hasCompletedGames: r.totalCompleted > 0
+        )
     }
 
-    private static let milestoneDefinitions: [(id: String, emoji: String, title: LocalizedStringKey, desc: LocalizedStringKey)] = [
-        ("first", "🎫", "첫 직관", "첫 경기 기록"),
-        ("ten", "⭐️", "10회 직관", "10경기 기록 달성"),
-        ("twentyfive", "🌟", "25회 직관", "25경기 기록 달성"),
-        ("fifty", "💫", "50회 직관", "50경기 기록 달성"),
-        ("hundred", "🏆", "100회 직관", "100경기 기록 달성"),
-        ("away", "🚌", "첫 원정", "원정 경기 기록"),
-        ("streak3", "🔥", "3연승 목격", "연속 3승 달성"),
-        ("streak5", "⚡️", "5연승 목격", "연속 5승 달성"),
-        ("shutout", "🛡️", "완봉승 목격", "상대 무득점 승리"),
-        ("rival", "🎯", "라이벌 마니아", "같은 상대 5경기 이상"),
-        ("home10", "🏠", "홈 지킴이", "홈경기 10승 이상"),
-        ("road5", "⚔️", "원정 전사", "원정 5경기 이상"),
+    private static let milestoneDefinitions: [(id: String, emoji: String, title: String, desc: String)] = [
+        ("first", "🎫", String(localized: "milestone.sports.first.title", defaultValue: "첫 직관"), String(localized: "milestone.sports.first.desc", defaultValue: "첫 경기 기록")),
+        ("ten", "⭐️", String(localized: "milestone.sports.ten.title", defaultValue: "10회 직관"), String(localized: "milestone.sports.ten.desc", defaultValue: "10경기 기록 달성")),
+        ("twentyfive", "🌟", String(localized: "milestone.sports.twentyfive.title", defaultValue: "25회 직관"), String(localized: "milestone.sports.twentyfive.desc", defaultValue: "25경기 기록 달성")),
+        ("fifty", "💫", String(localized: "milestone.sports.fifty.title", defaultValue: "50회 직관"), String(localized: "milestone.sports.fifty.desc", defaultValue: "50경기 기록 달성")),
+        ("hundred", "🏆", String(localized: "milestone.sports.hundred.title", defaultValue: "100회 직관"), String(localized: "milestone.sports.hundred.desc", defaultValue: "100경기 기록 달성")),
+        ("away", "🚌", String(localized: "milestone.sports.away.title", defaultValue: "첫 원정"), String(localized: "milestone.sports.away.desc", defaultValue: "원정 경기 기록")),
+        ("streak3", "🔥", String(localized: "milestone.sports.streak3.title", defaultValue: "3연승 목격"), String(localized: "milestone.sports.streak3.desc", defaultValue: "연속 3승 달성")),
+        ("streak5", "⚡️", String(localized: "milestone.sports.streak5.title", defaultValue: "5연승 목격"), String(localized: "milestone.sports.streak5.desc", defaultValue: "연속 5승 달성")),
+        ("shutout", "🛡️", String(localized: "milestone.sports.shutout.title", defaultValue: "완봉승 목격"), String(localized: "milestone.sports.shutout.desc", defaultValue: "상대 무득점 승리")),
+        ("rival", "🎯", String(localized: "milestone.sports.rival.title", defaultValue: "라이벌 마니아"), String(localized: "milestone.sports.rival.desc", defaultValue: "같은 상대 5경기 이상")),
+        ("home10", "🏠", String(localized: "milestone.sports.home10.title", defaultValue: "홈 지킴이"), String(localized: "milestone.sports.home10.desc", defaultValue: "홈경기 10승 이상")),
+        ("road5", "⚔️", String(localized: "milestone.sports.road5.title", defaultValue: "원정 전사"), String(localized: "milestone.sports.road5.desc", defaultValue: "원정 5경기 이상")),
     ]
 
     // MARK: - Body
@@ -40,14 +46,14 @@ struct FanStatsView: View {
         ScrollView {
             LazyVStack(spacing: 20) {
                 if isComputing {
-                    ProgressView("통계 계산 중…")
+                    ProgressView(String(localized: "fanstats.computing", defaultValue: "통계 계산 중…"))
                         .frame(maxWidth: .infinity)
                         .padding(40)
                 } else if let r = statsResult, r.totalCompleted == 0 {
                     ContentUnavailableView(
-                        "완료된 경기가 없습니다",
+                        String(localized: "fanstats.empty.noCompleted", defaultValue: "완료된 경기가 없습니다"),
                         systemImage: "chart.bar",
-                        description: Text("경기를 완료로 기록하면 통계가 나타납니다.")
+                        description: Text(String(localized: "stats.empty.completeGames", defaultValue: "경기를 완료로 기록하면 통계가 나타납니다."))
                     )
                 } else if let r = statsResult {
                     luckyFanCard(r)
@@ -61,7 +67,7 @@ struct FanStatsView: View {
             }
             .padding()
         }
-        .navigationTitle("팬 통계")
+        .navigationTitle(String(localized: "fanstats.navigation.title", defaultValue: "팬 통계"))
         .background(Color(uiColor: .systemGroupedBackground))
         // 경기 추가·수정·폴더 메타 변경 시 통계를 다시 계산
         .task(id: folder.fanfolioFolderTaskToken) { await computeStats() }
@@ -114,6 +120,7 @@ extension FanStatsView {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(Color(uiColor: .secondarySystemGroupedBackground))
             )
+            .groupedCardOutline(cornerRadius: 16)
         }
         .buttonStyle(.plain)
     }
@@ -135,16 +142,16 @@ extension FanStatsView {
             
             ZStack {
                 Circle()
-                    .stroke(Color.secondary.opacity(0.12), lineWidth: 10)
+                    .stroke(GroupedCardChrome.winRateRingTrackColorWide(colorScheme: colorScheme), lineWidth: 10)
                 Circle()
                     .trim(from: 0, to: r.winRate / 100)
                     .stroke(rateColor, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .animation(.easeOut(duration: 0.8), value: r.winRate)
                 VStack(spacing: 2) {
-                    Text("\(Int(r.winRate))%")
+                    Text(verbatim: "\(Int(r.winRate))%")
                         .font(.system(size: 28, weight: .heavy, design: .rounded))
-                    Text("승률")
+                    Text(String(localized: "teamInfo.winRate", defaultValue: "승률"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -155,7 +162,7 @@ extension FanStatsView {
                 HStack(spacing: 4) {
                     Image(systemName: "flame.fill")
                         .foregroundStyle(.orange)
-                    Text("최다 연승: \(r.maxWinStreak)연승")
+                    Text(String(format: String(localized: "stats.maxWinStreakFormat", defaultValue: "최다 연승: %lld연승"), locale: .autoupdatingCurrent, Int64(r.maxWinStreak)))
                         .font(.caption.bold())
                 }
                 .padding(.horizontal, 12)
@@ -167,9 +174,10 @@ extension FanStatsView {
         .frame(maxWidth: .infinity)
         .padding(24)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 20)
     }
 }
 
@@ -178,18 +186,18 @@ extension FanStatsView {
     private func recordSummaryCard(_ r: FanStatsResult) -> some View {
         VStack(spacing: 16) {
             HStack {
-                Label("전적 요약", systemImage: "chart.bar.fill")
+                Label(String(localized: "stats.summary.title", defaultValue: "전적 요약"), systemImage: "chart.bar.fill")
                     .font(.subheadline.bold())
                 Spacer()
-                Text("\(r.totalCompleted)경기")
+                Text(String(format: String(localized: "teamInfo.gamesShort", defaultValue: "%lld경기"), locale: .autoupdatingCurrent, Int64(r.totalCompleted)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             
             HStack(spacing: 0) {
-                statItem(value: "\(r.wins)", label: "승", color: .green)
-                statItem(value: "\(r.losses)", label: "패", color: .red)
-                statItem(value: "\(r.draws)", label: "무", color: .orange)
+                statItem(value: "\(r.wins)", label: String(localized: "sports.stats.label.win", defaultValue: "승"), color: .green)
+                statItem(value: "\(r.losses)", label: String(localized: "sports.stats.label.loss", defaultValue: "패"), color: .red)
+                statItem(value: "\(r.draws)", label: String(localized: "sports.stats.label.draw", defaultValue: "무"), color: .orange)
             }
             
             GeometryReader { geo in
@@ -216,27 +224,28 @@ extension FanStatsView {
             Divider()
             
             HStack(spacing: 0) {
-                homeAwayBlock(title: "홈", wins: r.homeWins, losses: r.homeLosses, draws: r.homeDraws)
+                homeAwayBlock(title: String(localized: "teamInfo.home", defaultValue: "홈"), wins: r.homeWins, losses: r.homeLosses, draws: r.homeDraws)
                 Divider()
                     .frame(height: 50)
                     .padding(.horizontal, 16)
-                homeAwayBlock(title: "원정", wins: r.awayWins, losses: r.awayLosses, draws: r.awayDraws)
+                homeAwayBlock(title: String(localized: "teamInfo.away", defaultValue: "원정"), wins: r.awayWins, losses: r.awayLosses, draws: r.awayDraws)
             }
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 20)
     }
     
-    private func statItem(value: String, label: LocalizedStringKey, color: Color) -> some View {
+    private func statItem(value: String, label: String, color: Color) -> some View {
         VStack(spacing: 4) {
-            Text(value)
+            Text(verbatim: value)
                 .font(.system(size: 28, weight: .heavy, design: .rounded))
             HStack(spacing: 4) {
                 Circle().fill(color).frame(width: 8, height: 8)
-                Text(label)
+                Text(verbatim: label)
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
             }
@@ -244,18 +253,18 @@ extension FanStatsView {
         .frame(maxWidth: .infinity)
     }
     
-    private func homeAwayBlock(title: LocalizedStringKey, wins: Int, losses: Int, draws: Int) -> some View {
+    private func homeAwayBlock(title: String, wins: Int, losses: Int, draws: Int) -> some View {
         let w = wins
         let l = losses
         let d = draws
         let total = w + l + d
         return VStack(spacing: 6) {
-            Text(title)
+            Text(verbatim: title)
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
-            Text("\(total)경기")
+            Text(String(format: String(localized: "teamInfo.gamesShort", defaultValue: "%lld경기"), locale: .autoupdatingCurrent, Int64(total)))
                 .font(.subheadline.weight(.semibold))
-            Text("\(w)승 \(l)패 \(d)무")
+            Text(String(format: String(localized: "stats.record.wldFull", defaultValue: "%1$lld승 %2$lld패 %3$lld무"), locale: .autoupdatingCurrent, w, l, d))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -268,29 +277,48 @@ extension FanStatsView {
     private func opponentSection(_ r: FanStatsResult) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("상대별 전적", systemImage: "person.2.fill")
+                Label(String(localized: "stats.opponent.title", defaultValue: "상대별 전적"), systemImage: "person.2.fill")
                     .font(.subheadline.bold())
                 Spacer()
             }
             
             ForEach(r.opponentRecords) { record in
-                HStack {
-                    Text(record.name)
-                        .font(.subheadline.weight(.medium))
-                        .lineLimit(1)
-                    
-                    Spacer()
-                    
-                    HStack(spacing: 8) {
-                        Text("\(record.wins)승 \(record.losses)패 \(record.draws)무")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        
-                        Text("\(Int(record.winRate))%")
-                            .font(.caption.bold())
-                            .foregroundStyle(record.winRate >= 50 ? .green : .red)
-                            .frame(width: 36, alignment: .trailing)
+                HStack(spacing: 0) {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(
+                            WinRateTierPalette.accentColor(
+                                forPercent: record.decisiveWinRatePercentForPalette,
+                                hasCompletedGames: record.total > 0
+                            )
+                        )
+                        .frame(width: 4, height: 36)
+                    HStack {
+                        Text(record.name)
+                            .font(.subheadline.weight(.medium))
+                            .lineLimit(1)
+
+                        Spacer()
+
+                        HStack(spacing: 8) {
+                            Text(String(format: String(localized: "stats.record.wldFull", defaultValue: "%1$lld승 %2$lld패 %3$lld무"), locale: .autoupdatingCurrent, record.wins, record.losses, record.draws))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            Text(record.winRatePercentDisplayString)
+                                .font(.caption.bold())
+                                .foregroundStyle(
+                                    record.wins + record.losses > 0
+                                        ? WinRateTierPalette.accentColor(
+                                            forPercent: record.decisiveWinRatePercentForPalette,
+                                            hasCompletedGames: true
+                                        )
+                                        : Color.secondary
+                                )
+                                .frame(width: 40, alignment: .trailing)
+                                .monospacedDigit()
+                        }
                     }
+                    .padding(.leading, 10)
                 }
                 .padding(.vertical, 4)
                 
@@ -301,9 +329,10 @@ extension FanStatsView {
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 20)
     }
 }
 
@@ -315,10 +344,10 @@ extension FanStatsView {
         
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("월별 기록", systemImage: "calendar.badge.clock")
+                Label(String(localized: "stats.monthly.title", defaultValue: "월별 기록"), systemImage: "calendar.badge.clock")
                     .font(.subheadline.bold())
                 Spacer()
-                Text("최근 12개월")
+                Text(String(localized: "stats.months.recent", defaultValue: "최근 12개월"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -331,7 +360,7 @@ extension FanStatsView {
                             .frame(height: 40)
                             .overlay {
                                 if data.count > 0 {
-                                    Text("\(data.count)")
+                                    Text(verbatim: "\(data.count)")
                                         .font(.caption2.bold())
                                         .foregroundStyle(
                                             data.count > 0
@@ -341,7 +370,7 @@ extension FanStatsView {
                                 }
                             }
                         
-                        Text("\(data.month)월")
+                        Text(String(format: String(localized: "cultureStats.monthSuffix", defaultValue: "%lld월"), locale: .autoupdatingCurrent, Int64(data.month)))
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
@@ -351,7 +380,7 @@ extension FanStatsView {
             // 범례
             HStack(spacing: 12) {
                 Spacer()
-                Text("적음")
+                Text(String(localized: "stats.heatmap.less", defaultValue: "적음"))
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                 HStack(spacing: 3) {
@@ -361,16 +390,17 @@ extension FanStatsView {
                             .frame(width: 12, height: 12)
                     }
                 }
-                Text("많음")
+                Text(String(localized: "stats.heatmap.more", defaultValue: "많음"))
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 20)
     }
     
     private func heatmapColor(count: Int, max: Int) -> Color {
@@ -395,10 +425,10 @@ extension FanStatsView {
         let unlockedCount = milestones.filter(\.isUnlocked).count
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("직관 마일스톤", systemImage: "trophy.fill")
+                Label(String(localized: "stats.milestones.title", defaultValue: "직관 마일스톤"), systemImage: "trophy.fill")
                     .font(.subheadline.bold())
                 Spacer()
-                Text("\(unlockedCount)/\(milestones.count)")
+                Text(verbatim: "\(unlockedCount)/\(milestones.count)")
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
             }
@@ -443,9 +473,10 @@ extension FanStatsView {
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         )
+        .groupedCardOutline(cornerRadius: 20)
     }
 }
 
@@ -503,7 +534,7 @@ struct PlayerImageView: View {
 
             VStack(spacing: 0) {
                 if let number = jerseyNumber, !number.isEmpty {
-                    Text("#\(number)")
+                    Text(verbatim: "#\(number)")
                         .font(.system(size: max(7, size * 0.16), weight: .bold))
                         .foregroundStyle(teamColor.opacity(0.75))
                 }
@@ -630,7 +661,7 @@ extension FanStatsView {
             HStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.body.weight(.semibold))
-                Text("시즌 리포트 공유하기")
+                Text(String(localized: "stats.share.seasonReport", defaultValue: "시즌 리포트 공유하기"))
                     .font(.body.weight(.semibold))
             }
             .foregroundStyle(.white)
@@ -671,6 +702,8 @@ extension FanStatsView {
                        locale: .autoupdatingCurrent,
                        $0.wins, $0.losses, $0.draws)
             },
+            topOpponentPalettePercent: topOpp.map(\.decisiveWinRatePercentForPalette),
+            topOpponentTotalGames: topOpp.map(\.total),
             unlockedEmojis:    unlockedEmojis,
             style:             style,
             fanArchetype:      r.fanArchetype,
@@ -683,7 +716,7 @@ extension FanStatsView {
         let renderer = ImageRenderer(
             content: content.frame(width: canvasWidth, height: canvasHeight)
         )
-        renderer.scale = 3
+        renderer.scale = storeSubscription.isPro ? 3 : 2
         return renderer.uiImage
     }
 }
@@ -700,6 +733,9 @@ private struct SeasonReportContent: View {
     let maxStreak:         Int
     let topOpponentName:   String?
     let topOpponentRecord: String?
+    /// 최다 대결 상대의 팔레트용 승률(%). 없으면 전적 줄은 `textDim`.
+    let topOpponentPalettePercent: Double?
+    let topOpponentTotalGames: Int?
     let unlockedEmojis:    String
     let style:             ShareStyle
     let fanArchetype:      FanArchetype
@@ -717,6 +753,13 @@ private struct SeasonReportContent: View {
     private var cardBorder:  Color { isDark ? .white.opacity(0.16) : .white.opacity(0.75) }
     private var accentGold:  Color { isDark ? Color(red: 1.0, green: 0.82, blue: 0.30) : Color(red: 0.85, green: 0.55, blue: 0.0) }
     private var barcodeInk:  Color { isDark ? .white.opacity(0.65) : Color(red: 0.12, green: 0.12, blue: 0.18).opacity(0.70) }
+
+    private var topOpponentRecordColor: Color {
+        guard let pct = topOpponentPalettePercent, let total = topOpponentTotalGames, total > 0 else {
+            return textDim
+        }
+        return WinRateTierPalette.reportAccentColor(forPercent: pct, totalGames: total)
+    }
 
     // MARK: - Body
     // 캔버스: 390 × 693pt (9:16). 수직 패딩 40pt × 2 = 80pt 제외하면
@@ -780,7 +823,7 @@ private struct SeasonReportContent: View {
 
     private var headerSection: some View {
         VStack(spacing: 7) {
-            Text("나의 시즌 리포트")
+            Text(String(localized: "stats.report.title", defaultValue: "나의 시즌 리포트"))
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(textDim)
                 .tracking(3)
@@ -819,14 +862,14 @@ private struct SeasonReportContent: View {
 
                 VStack(spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
-                        Text("상위")
+                        Text(String(localized: "stats.report.top", defaultValue: "상위"))
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(textSub)
-                        Text("\(100 - fanRankPercentile)%")
+                        Text(verbatim: "\(100 - fanRankPercentile)%")
                             .font(.system(size: 24, weight: .heavy, design: .rounded))
                             .foregroundStyle(accentGold)
                     }
-                    Text("팬 퍼센타일")
+                    Text(String(localized: "stats.report.fanPercentile", defaultValue: "팬 퍼센타일"))
                         .font(.system(size: 9))
                         .foregroundStyle(textDim)
                 }
@@ -843,15 +886,17 @@ private struct SeasonReportContent: View {
         glassCard {
             VStack(spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text("\(Int(winRate))")
+                    Text(verbatim: "\(Int(winRate))")
                         .font(.system(size: 52, weight: .heavy, design: .rounded))
-                        .foregroundStyle(textMain)
+                        .foregroundStyle(
+                            WinRateTierPalette.reportAccentColor(forPercent: winRate, totalGames: totalGames)
+                        )
                     Text("%")
                         .font(.system(size: 22, weight: .heavy, design: .rounded))
                         .foregroundStyle(textSub)
                 }
 
-                Text("승률")
+                Text(String(localized: "stats.report.winRate", defaultValue: "승률"))
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(textDim)
                     .tracking(2)
@@ -878,22 +923,22 @@ private struct SeasonReportContent: View {
                 .frame(height: 5)
 
                 HStack(spacing: 0) {
-                    statCell(value: "\(wins)",       label: "승",  color: .green)
-                    statCell(value: "\(losses)",     label: "패",  color: .red)
-                    statCell(value: "\(draws)",      label: "무",  color: .orange)
-                    statCell(value: "\(totalGames)", label: "경기", color: textSub)
+                    statCell(value: "\(wins)",       label: String(localized: "sports.stats.label.win", defaultValue: "승"),  color: .green)
+                    statCell(value: "\(losses)",     label: String(localized: "sports.stats.label.loss", defaultValue: "패"),  color: .red)
+                    statCell(value: "\(draws)",      label: String(localized: "sports.stats.label.draw", defaultValue: "무"),  color: .orange)
+                    statCell(value: "\(totalGames)", label: String(localized: "stats.gamesLabelShort", defaultValue: "경기"), color: textSub)
                 }
             }
             .padding(12)
         }
     }
 
-    private func statCell(value: String, label: LocalizedStringKey, color: Color) -> some View {
+    private func statCell(value: String, label: String, color: Color) -> some View {
         VStack(spacing: 2) {
-            Text(value)
+            Text(verbatim: value)
                 .font(.system(size: 18, weight: .heavy, design: .rounded))
                 .foregroundStyle(color)
-            Text(label)
+            Text(verbatim: label)
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(textDim)
         }
@@ -909,15 +954,15 @@ private struct SeasonReportContent: View {
                     Text(maxStreak >= 2 ? "🔥" : "—")
                         .font(.system(size: 22))
                     if maxStreak >= 2 {
-                        Text("\(maxStreak)연승")
+                        Text(String(format: String(localized: "stats.streak.maxWins", defaultValue: "%lld연승"), locale: .autoupdatingCurrent, Int64(maxStreak)))
                             .font(.system(size: 15, weight: .heavy, design: .rounded))
                             .foregroundStyle(.orange)
                     } else {
-                        Text("기록 없음")
+                        Text(String(localized: "stats.streak.none", defaultValue: "기록 없음"))
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(textDim)
                     }
-                    Text("최다 연승")
+                    Text(String(localized: "stats.streak.longest", defaultValue: "최다 연승"))
                         .font(.system(size: 9))
                         .foregroundStyle(textDim)
                 }
@@ -930,16 +975,16 @@ private struct SeasonReportContent: View {
                     VStack(spacing: 5) {
                         Text("⚔️")
                             .font(.system(size: 22))
-                        Text("vs \(opp)")
+                        Text(String(format: String(localized: "matchImport.vsPrefix", defaultValue: "vs %@"), locale: .autoupdatingCurrent, opp))
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(textMain)
                             .lineLimit(1)
                         if let rec = topOpponentRecord {
                             Text(rec)
                                 .font(.system(size: 9))
-                                .foregroundStyle(textDim)
+                                .foregroundStyle(topOpponentRecordColor)
                         }
-                        Text("최다 대결")
+                        Text(String(localized: "stats.opponent.mostPlayed", defaultValue: "최다 대결"))
                             .font(.system(size: 9))
                             .foregroundStyle(textDim)
                     }
@@ -959,7 +1004,7 @@ private struct SeasonReportContent: View {
                     .font(.system(size: 26))
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("시즌 하이라이트")
+                    Text(String(localized: "stats.highlight.season", defaultValue: "시즌 하이라이트"))
                         .font(.system(size: 9, weight: .medium))
                         .foregroundStyle(textDim)
                         .tracking(1)
@@ -981,7 +1026,7 @@ private struct SeasonReportContent: View {
 
     private var badgesSection: some View {
         VStack(spacing: 6) {
-            Text("달성 뱃지")
+            Text(String(localized: "stats.badges.unlocked", defaultValue: "달성 뱃지"))
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(textDim)
                 .tracking(1)
@@ -1053,7 +1098,7 @@ private struct SeasonReportContent: View {
 // OpponentRecord는 FanStatsCalculator.swift로 이동했습니다.
 
 private struct MonthlyRecord: Identifiable {
-    let id = UUID()
+    var id: Int { month }
     let month: Int
     let count: Int
 }
@@ -1061,8 +1106,8 @@ private struct MonthlyRecord: Identifiable {
 private struct FanMilestone: Identifiable {
     let id: String
     let emoji: String
-    let title: LocalizedStringKey
-    let desc: LocalizedStringKey
+    let title: String
+    let desc: String
     let isUnlocked: Bool
 }
 
