@@ -377,7 +377,8 @@ struct CultureTicketShareView: View {
 
     @MainActor
     private func buildImageForSharing() async -> UIImage? {
-        let isPro = storeSubscription.isPro
+        let highQuality = storeSubscription.hasProFeatureAccess
+        let removeShareWatermark = storeSubscription.hasActiveStoreKitProEntitlement
         let model = currentCardModel
         let renderer = ImageRenderer(
             content: CultureTicketCardView(model: model)
@@ -386,14 +387,14 @@ struct CultureTicketShareView: View {
                     height: CultureTicketCardView.designHeight
                 )
         )
-        renderer.scale = isPro ? 3 : 2
+        renderer.scale = highQuality ? 3 : 2
         renderer.isOpaque = true
         renderer.proposedSize = ProposedViewSize(
             width: CultureTicketCardView.designWidth,
             height: CultureTicketCardView.designHeight
         )
         guard let image = renderer.uiImage else { return nil }
-        if isPro { return image }
+        if removeShareWatermark { return image }
         return applyFanfolioWatermark(to: image)
     }
 

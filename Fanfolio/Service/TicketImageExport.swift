@@ -24,7 +24,13 @@ enum TicketImageExport {
     static let proShareRendererScale: CGFloat = 4.0
 
     /// 저장된 티켓 이미지 공유: 디스크 로드는 백그라운드, 합성·렌더는 메인.
-    static func prepareSavedTicketShareImage(relativeMasterPath: String, isPro: Bool) async -> UIImage? {
+    /// - `highQualityShare`: Pro급 해상도·업스케일(런칭 전면 개방 등).
+    /// - `showWatermark`: Fanfolio 브랜딩 오버레이 — StoreKit 구독으로만 끌 수 있게 호출부에서 넘깁니다.
+    static func prepareSavedTicketShareImage(
+        relativeMasterPath: String,
+        highQualityShare: Bool,
+        showWatermark: Bool
+    ) async -> UIImage? {
         let master = await Task.detached {
             TicketImageStore.loadImage(path: relativeMasterPath)
         }.value
@@ -32,22 +38,21 @@ enum TicketImageExport {
         guard let master else { return nil }
 
         return await MainActor.run {
-            renderSavedTicketForShare(master: master, isPro: isPro)
+            renderSavedTicketForShare(master: master, highQualityShare: highQualityShare, showWatermark: showWatermark)
         }
     }
 
     // MARK: - 저장된 래스터 티켓
 
     @MainActor
-    private static func renderSavedTicketForShare(master: UIImage, isPro: Bool) -> UIImage? {
-        let base = isPro ? master : downscaleLongEdge(master, maxLongEdge: 1024)
-        let showWatermark = !isPro
+    private static func renderSavedTicketForShare(master: UIImage, highQualityShare: Bool, showWatermark: Bool) -> UIImage? {
+        let base = highQualityShare ? master : downscaleLongEdge(master, maxLongEdge: 1024)
         let w = base.size.width
         let h = base.size.height
         let longEdge = max(w, h)
 
         let rendererScale: CGFloat
-        if isPro {
+        if highQualityShare {
             let cap = 4096.0 / max(longEdge, 1)
             rendererScale = min(proShareRendererScale, max(1, cap))
         } else {

@@ -345,9 +345,9 @@ final class RoadTripHighlightReelController {
 
     private static let chaseZoomLegKmMin = 0.35
     private static let chaseZoomLegKmMax = 600.0
-    private static let chaseZoomClose: CGFloat = 13.75
-    private static let chaseZoomWide: CGFloat = 11.65
-    private static let chaseZoomOutputMin: CGFloat = 11.25
+    private static let chaseZoomClose: CGFloat = 13.18
+    private static let chaseZoomWide: CGFloat = 11.55
+    private static let chaseZoomOutputMin: CGFloat = 11.05
     private static let chaseZoomOutputMax: CGFloat = 13.85
     /// 진행 중 포물선 줌아웃 시에만 더 넓게 허용(타일 부담 완화).
     private static let chaseZoomParallaxFloor: CGFloat = 9.95
@@ -369,7 +369,7 @@ final class RoadTripHighlightReelController {
     private static func chaseZoomParallaxOffset(progress: Double, legKm: Double) -> CGFloat {
         let p = min(1, max(0, progress))
         let bell = 4 * p * (1 - p)
-        let legWeight = min(1, max(0, (legKm - 35) / 550))
+        let legWeight = min(1, max(0, (legKm - 10) / 420))
         let depth: CGFloat = 1.55
         return -CGFloat(bell * legWeight) * depth
     }
@@ -387,7 +387,7 @@ final class RoadTripHighlightReelController {
         let base = chaseZoom(forLegKm: legKm, layoutMetrics: layoutMetrics)
         let parallax = chaseZoomParallaxOffset(progress: progress, legKm: legKm)
         /// 전 구간 공통으로 살짝 더 넓힘(고줌 타일 폭주 완화) — 이동 중 시야를 한 단계 더 넓힘.
-        let zoomBias: CGFloat = -0.48
+        let zoomBias: CGFloat = -0.58
         let zoom = min(chaseZoomOutputMax, max(chaseZoomParallaxFloor, base + parallax + zoomBias))
         return .camera(center: center, zoom: zoom, bearing: bearing, pitch: chasePitchDegrees)
     }

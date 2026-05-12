@@ -219,7 +219,7 @@ struct SportsTicketShareView: View {
     // MARK: - 현재 카드 모델 조립
 
     private var previewCardModel: MatchTicketModel {
-        makeCardModel(showsBrandingWatermark: true)
+        makeCardModel(showsBrandingWatermark: !storeSubscription.hasActiveStoreKitProEntitlement)
     }
 
     private func makeCardModel(showsBrandingWatermark: Bool) -> MatchTicketModel {
@@ -561,9 +561,9 @@ struct SportsTicketShareView: View {
 
     @MainActor
     private func buildImageForSharing() async -> UIImage? {
-        let isPro = storeSubscription.isPro
-        let scale = isPro ? TicketImageExport.proShareRendererScale : TicketImageExport.freeShareRendererScale
-        let model = makeCardModel(showsBrandingWatermark: !isPro)
+        let highQuality = storeSubscription.hasProFeatureAccess
+        let scale = highQuality ? TicketImageExport.proShareRendererScale : TicketImageExport.freeShareRendererScale
+        let model = makeCardModel(showsBrandingWatermark: !storeSubscription.hasActiveStoreKitProEntitlement)
         return renderTicketImage(model: model, scale: scale)
     }
 

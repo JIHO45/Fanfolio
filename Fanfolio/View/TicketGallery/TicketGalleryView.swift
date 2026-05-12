@@ -157,7 +157,8 @@ struct TicketGalleryView: View {
         Task {
             let image = await TicketImageExport.prepareSavedTicketShareImage(
                 relativeMasterPath: path,
-                isPro: storeSubscription.isPro
+                highQualityShare: storeSubscription.hasProFeatureAccess,
+                showWatermark: !storeSubscription.hasActiveStoreKitProEntitlement
             )
             await MainActor.run {
                 isPreparingShare = false
@@ -362,7 +363,8 @@ struct TicketImageViewerView: View {
                         Task {
                             let image = await TicketImageExport.prepareSavedTicketShareImage(
                                 relativeMasterPath: path,
-                                isPro: storeSubscription.isPro
+                                highQualityShare: storeSubscription.hasProFeatureAccess,
+                                showWatermark: !storeSubscription.hasActiveStoreKitProEntitlement
                             )
                             await MainActor.run {
                                 isPreparingShare = false

@@ -716,7 +716,7 @@ extension FanStatsView {
         let renderer = ImageRenderer(
             content: content.frame(width: canvasWidth, height: canvasHeight)
         )
-        renderer.scale = storeSubscription.isPro ? 3 : 2
+        renderer.scale = storeSubscription.hasProFeatureAccess ? 3 : 2
         return renderer.uiImage
     }
 }

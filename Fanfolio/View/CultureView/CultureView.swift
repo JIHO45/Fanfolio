@@ -99,16 +99,12 @@ struct CultureView: View {
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .toolbar {
-            ToolbarItem(placement: .bottomBar) {
-                HStack {
-                    Spacer(minLength: 0)
-                    Button {
-                        showingAddEventSheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingAddEventSheet = true
+                } label: {
+                    Image(systemName: "plus")
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .sheet(isPresented: $showingAddEventSheet) {

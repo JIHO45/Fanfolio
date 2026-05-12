@@ -114,6 +114,7 @@ struct CategoryView: View {
             LegacyArchivePhotoMigration.runIfNeeded(in: modelContext)
         }
         .environment(\.presentPaywall) {
+            guard !FanfolioSubscriptionFlags.launchProFeaturesFreeForEveryone else { return }
             showPaywall = true
         }
         .sheet(isPresented: $showPaywall) {
@@ -167,7 +168,7 @@ struct SidebarView: View {
                 // 프로필 영역
                 profileSection
                 
-                if !storeSubscription.isPro {
+                if storeSubscription.shouldOfferProPurchase {
                     sidebarProBanner
                         .padding(.horizontal)
                         .padding(.bottom, 8)
@@ -602,7 +603,10 @@ struct MainContentView: View {
                             .foregroundColor(.primary)
                     }
                 }
-                if !storeSubscription.isPro {
+                // 스포츠·문화 폴더 화면에서는 상단 오른쪽을 편집/추가 버튼으로 쓰므로 왕관(페이월)은 표시하지 않음
+                if storeSubscription.shouldOfferProPurchase,
+                   selectedSportsFolder == nil,
+                   selectedCultureFolder == nil {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
                             presentPaywall()

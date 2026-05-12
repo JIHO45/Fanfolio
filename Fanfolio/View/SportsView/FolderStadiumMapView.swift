@@ -76,7 +76,7 @@ struct FolderStadiumMapView: View {
     /// Summary 단계에서 지도 스냅샷 캡처 — `MapReader` proxy가 살아 있는 동안만 유효.
     @State private var captureMapSnapshot: (() -> UIImage?)?
 
-    private var isPro: Bool { storeSubscription.isPro }
+    private var isPro: Bool { storeSubscription.hasProFeatureAccess }
 
     /// iPad·가로 regular에서 추적 샷을 약간 넓게, 로고 여백 확보.
     private var roadTripLayoutMetrics: RoadTripLayoutMetrics {
