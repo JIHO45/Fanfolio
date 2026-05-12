@@ -11,4 +11,5 @@ MAPBOX_ACCESS_TOKEN = YOUR_MAPBOX_PUBLIC_TOKEN_HERE
 FIREBASE_PROJECT_ID = YOUR_FIREBASE_PROJECT_ID_HERE
 FIREBASE_WEB_API_KEY = YOUR_FIREBASE_WEB_API_KEY_HERE
 // (선택) 앱·App Store Connect에 넣을 개인정보 처리방침 URL. DeveloperSettings.xcconfig에도 동일 키로 둘 수 있습니다.
-// PRIVACY_POLICY_URL = https://www.notion.so/your-public-privacy-page
+// https URL: xcconfig에서 // 가 주석이므로 `https://` 대신 `https:/$()/` 패턴을 쓰세요(빈 $( ) 치환).
+// PRIVACY_POLICY_URL = https:/$()/www.notion.so/your-public-privacy-page

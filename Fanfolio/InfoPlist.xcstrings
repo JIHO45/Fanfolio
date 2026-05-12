@@ -51,6 +51,23 @@
           }
         }
       }
+    },
+    "NSLocationWhenInUseUsageDescription" : {
+      "comment" : "Privacy - Location When In Use Usage Description",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Displays stadiums and match venues on the map, and helps localize map and place search results."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "직관 지도에서 구장·경기 장소를 표시하고, 지도·장소 검색 결과를 맞추기 위해 사용합니다."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
