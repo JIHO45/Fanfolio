@@ -53,7 +53,7 @@ struct ProSubscriptionView: View {
             )) {
                 Button(String(localized: "common.action.ok", defaultValue: "확인"), role: .cancel) {
                     subscriptionNotice = nil
-                    if storeSubscription.isPro {
+                    if storeSubscription.hasActiveStoreKitProEntitlement {
                         dismiss()
                     }
                 }
@@ -198,7 +198,7 @@ struct ProSubscriptionView: View {
                     await storeSubscription.restorePurchases()
                     if let msg = storeSubscription.lastErrorMessage, !msg.isEmpty {
                         subscriptionNotice = msg
-                    } else if storeSubscription.isPro {
+                    } else if storeSubscription.hasActiveStoreKitProEntitlement {
                         subscriptionNotice = String(localized: "subscription.restore.success", defaultValue: "구매 내역을 복원했습니다.")
                     }
                 }

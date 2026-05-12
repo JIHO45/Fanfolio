@@ -15,11 +15,13 @@ struct SettingsView: View {
     @Environment(StoreSubscriptionManager.self) private var storeSubscription
     @Environment(\.dismiss) private var dismiss
     @Environment(\.presentPaywall) private var presentPaywall
+    @Environment(\.openURL) private var openURL
     
     @State private var editingName = false
     @State private var nameInput = ""
     @State private var showingLogoutAlert = false
     @State private var showingDeleteAccountAlert = false
+    @State private var showingSubscriptionManageSheet = false
 
     // 프로필 사진
     @State private var selectedPhoto: PhotosPickerItem?
@@ -42,6 +44,10 @@ struct SettingsView: View {
             }
             .onChange(of: selectedPhoto) { _, newValue in
                 loadProfilePhoto(from: newValue)
+            }
+            .sheet(isPresented: $showingSubscriptionManageSheet) {
+                SubscriptionManageSheet()
+                    .environment(storeSubscription)
             }
         }
     }
@@ -130,14 +136,46 @@ struct SettingsView: View {
 
     private var subscriptionSection: some View {
         Section {
-            if storeSubscription.isPro {
-                HStack {
-                    Label(String(localized: "subscription.status.active", defaultValue: "Fanfolio Pro"), systemImage: "checkmark.seal.fill")
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    Text(String(localized: "subscription.status.active.badge", defaultValue: "사용 중"))
+            if storeSubscription.hasActiveStoreKitProEntitlement {
+                Button {
+                    showingSubscriptionManageSheet = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Label(String(localized: "subscription.status.active", defaultValue: "Fanfolio Pro"), systemImage: "checkmark.seal.fill")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text(String(localized: "subscription.status.active.badge", defaultValue: "사용 중"))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        if let until = storeSubscription.proEntitlementExpiresAt {
+                            Text(
+                                String(
+                                    format: String(localized: "subscription.settings.activeUntilFormat", defaultValue: "%@까지 Pro"),
+                                    until.formatted(.dateTime.year().month().day())
+                                )
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint(String(localized: "subscription.settings.manageRow.a11y", defaultValue: "구독 해지 및 관리"))
+            } else if FanfolioSubscriptionFlags.launchProFeaturesFreeForEveryone {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(String(localized: "subscription.launch.allFeaturesFree.message", defaultValue: "런칭 기념으로 Pro 기능을 모두 무료로 이용할 수 있어요."))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                    Text(String(localized: "subscription.launch.allFeaturesFree.footer", defaultValue: "유료 구독은 이후 업데이트에서 안내될 수 있어요."))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 10) {
@@ -238,7 +276,9 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
             if let privacyURL = APIConfig.privacyPolicyURL {
-                Link(destination: privacyURL) {
+                Button {
+                    openURL(privacyURL)
+                } label: {
                     HStack {
                         Text(String(localized: "settings.about.privacyPolicy", defaultValue: "개인정보 처리방침"))
                         Spacer()
@@ -246,11 +286,12 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .buttonStyle(.plain)
             }
             HStack {
                 Text(String(localized: "settings.about.version", defaultValue: "버전"))
                 Spacer()
-                Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.1")
                     .foregroundStyle(.secondary)
             }
         } header: {
