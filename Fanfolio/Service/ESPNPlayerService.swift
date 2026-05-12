@@ -232,8 +232,8 @@ actor ESPNPlayerService {
 
         return LiveFixture(
             id: eventID,
-            homeTeam: LiveTeamInfo(id: Int(home.team.id) ?? 0, name: home.team.displayName, logoURL: home.team.logo),
-            awayTeam: LiveTeamInfo(id: Int(away.team.id) ?? 0, name: away.team.displayName, logoURL: away.team.logo),
+            homeTeam: LiveTeamInfo(id: Int(home.team.id) ?? 0, name: home.team.displayName, logoURL: home.team.logo, abbreviation: home.team.abbreviation),
+            awayTeam: LiveTeamInfo(id: Int(away.team.id) ?? 0, name: away.team.displayName, logoURL: away.team.logo, abbreviation: away.team.abbreviation),
             score: LiveScore(home: homeScore, away: awayScore),
             status: status,
             league: LiveLeagueInfo(id: 0, name: leagueCode, season: nil),

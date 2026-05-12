@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>API_SPORTS_KEY</key>
 	<string>$(API_SPORTS_KEY)</string>
 	<key>FIREBASE_PROJECT_ID</key>
@@ -10,11 +12,19 @@
 	<string>$(FIREBASE_WEB_API_KEY)</string>
 	<key>PRIVACY_POLICY_URL</key>
 	<string>$(PRIVACY_POLICY_URL)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>MBXAccessToken</key>
 	<string>$(MAPBOX_ACCESS_TOKEN)</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Displays stadiums and match venues on the map, and helps localize map and place search results.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
 </dict>
 </plist>

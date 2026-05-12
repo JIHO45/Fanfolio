@@ -5,13 +5,23 @@
 //  Created by 박지호 on 12/10/25.
 //
 
-import SwiftUI
-import SwiftData
 import MapboxMaps
 import os.log
+import SwiftData
+import SwiftUI
+import UIKit
+
+/// `UIRequiresFullScreen` 없이 앱 전체를 세로(Portrait)로 고정한다. (iPad 멀티태스킹·향후 키 deprecation 대비)
+final class FanfolioAppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        .portrait
+    }
+}
 
 @main
 struct FanfolioApp: App {
+    @UIApplicationDelegateAdaptor(FanfolioAppDelegate.self) private var appDelegate
+
     let container: ModelContainer
     @State private var authService = AuthService()
     @State private var networkMonitor = NetworkMonitor.shared
@@ -45,6 +55,11 @@ struct FanfolioApp: App {
         }
 
         _ = StoreSubscriptionManager.shared
+
+        // 앱 강제 종료 후 재실행 시, 시스템에 남아있는 우리 라이브 액티비티를 다시 추적.
+        Task { @MainActor in
+            LiveActivityManager.shared.reattachOnLaunch()
+        }
     }
 
     var body: some Scene {

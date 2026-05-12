@@ -46,9 +46,20 @@ struct LiveTeamInfo: Codable {
     let id: Int
     let name: String
     let logoURL: String?
-    
+    /// 팀 약자(ESPN 응답의 `abbreviation`). 라이브 액티비티 위젯처럼 네트워크 이미지를
+    /// 띄울 수 없는 환경에서 로고 대체 텍스트(예: "LAL", "MCI")로 사용합니다.
+    /// API-Sports·KBO 등 약자가 없는 출처에서는 `nil`.
+    let abbreviation: String?
+
+    init(id: Int, name: String, logoURL: String?, abbreviation: String? = nil) {
+        self.id = id
+        self.name = name
+        self.logoURL = logoURL
+        self.abbreviation = abbreviation
+    }
+
     enum CodingKeys: String, CodingKey {
-        case id, name
+        case id, name, abbreviation
         case logoURL = "logo"
     }
 }

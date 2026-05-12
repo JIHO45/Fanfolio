@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D824BC012FB2EEC2001E985C /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D824BC002FB2EEC2001E985C /* WidgetKit.framework */; };
+		D824BC032FB2EEC2001E985C /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D824BC022FB2EEC2001E985C /* SwiftUI.framework */; };
+		D824BC142FB2EEC4001E985C /* FanfolioLiveScoreWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D824BBFE2FB2EEC2001E985C /* FanfolioLiveScoreWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D86F7BE12F6BCC8200260107 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = D86F7BE02F6BCC8200260107 /* Kingfisher */; };
 		D87D6D3F2F7A395400D7A894 /* MapboxMaps in Frameworks */ = {isa = PBXBuildFile; productRef = D87D6D3E2F7A395400D7A894 /* MapboxMaps */; };
 		D8BC30772F8CD8FE00CE3270 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = D8BC30762F8CD8FE00CE3270 /* FirebaseFirestore */; };
@@ -14,6 +17,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		D824BC122FB2EEC4001E985C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D84DF8A12EE9A66200205AA9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D824BBFD2FB2EEC2001E985C;
+			remoteInfo = FanfolioLiveScoreWidgetExtension;
+		};
 		D84DF8B72EE9A66400205AA9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D84DF8A12EE9A66200205AA9 /* Project object */;
@@ -30,7 +40,24 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		D824BC192FB2EEC4001E985C /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D824BC142FB2EEC4001E985C /* FanfolioLiveScoreWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		D824BBFE2FB2EEC2001E985C /* FanfolioLiveScoreWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FanfolioLiveScoreWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D824BC002FB2EEC2001E985C /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		D824BC022FB2EEC2001E985C /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		D84DF8A92EE9A66200205AA9 /* Fanfolio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fanfolio.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D84DF8B62EE9A66400205AA9 /* FanfolioTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FanfolioTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D84DF8C02EE9A66400205AA9 /* FanfolioUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FanfolioUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -39,6 +66,21 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D824BC182FB2EEC4001E985C /* Exceptions for "FanfolioLiveScoreWidget" folder in "FanfolioLiveScoreWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D824BBFD2FB2EEC2001E985C /* FanfolioLiveScoreWidgetExtension */;
+		};
+		D824BC1D2FB2EFC6001E985C /* Exceptions for "Fanfolio" folder in "FanfolioLiveScoreWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Assets.xcassets,
+				LiveActivity/LiveScoreAttributes.swift,
+			);
+			target = D824BBFD2FB2EEC2001E985C /* FanfolioLiveScoreWidgetExtension */;
+		};
 		D8D1BFD92F41EFFE008DE051 /* Exceptions for "Fanfolio" folder in "Fanfolio" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -49,10 +91,19 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		D824BC042FB2EEC2001E985C /* FanfolioLiveScoreWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D824BC182FB2EEC4001E985C /* Exceptions for "FanfolioLiveScoreWidget" folder in "FanfolioLiveScoreWidgetExtension" target */,
+			);
+			path = FanfolioLiveScoreWidget;
+			sourceTree = "<group>";
+		};
 		D84DF8AB2EE9A66200205AA9 /* Fanfolio */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				D8D1BFD92F41EFFE008DE051 /* Exceptions for "Fanfolio" folder in "Fanfolio" target */,
+				D824BC1D2FB2EFC6001E985C /* Exceptions for "Fanfolio" folder in "FanfolioLiveScoreWidgetExtension" target */,
 			);
 			path = Fanfolio;
 			sourceTree = "<group>";
@@ -70,6 +121,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		D824BBFB2FB2EEC2001E985C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D824BC032FB2EEC2001E985C /* SwiftUI.framework in Frameworks */,
+				D824BC012FB2EEC2001E985C /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D84DF8A62EE9A66200205AA9 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -97,6 +157,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		D824BBFF2FB2EEC2001E985C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D824BC002FB2EEC2001E985C /* WidgetKit.framework */,
+				D824BC022FB2EEC2001E985C /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		D84DF8A02EE9A66200205AA9 = {
 			isa = PBXGroup;
 			children = (
@@ -105,6 +174,8 @@
 				D84DF8AB2EE9A66200205AA9 /* Fanfolio */,
 				D84DF8B92EE9A66400205AA9 /* FanfolioTests */,
 				D84DF8C32EE9A66400205AA9 /* FanfolioUITests */,
+				D824BC042FB2EEC2001E985C /* FanfolioLiveScoreWidget */,
+				D824BBFF2FB2EEC2001E985C /* Frameworks */,
 				D84DF8AA2EE9A66200205AA9 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -115,6 +186,7 @@
 				D84DF8A92EE9A66200205AA9 /* Fanfolio.app */,
 				D84DF8B62EE9A66400205AA9 /* FanfolioTests.xctest */,
 				D84DF8C02EE9A66400205AA9 /* FanfolioUITests.xctest */,
+				D824BBFE2FB2EEC2001E985C /* FanfolioLiveScoreWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -122,6 +194,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		D824BBFD2FB2EEC2001E985C /* FanfolioLiveScoreWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D824BC152FB2EEC4001E985C /* Build configuration list for PBXNativeTarget "FanfolioLiveScoreWidgetExtension" */;
+			buildPhases = (
+				D824BBFA2FB2EEC2001E985C /* Sources */,
+				D824BBFB2FB2EEC2001E985C /* Frameworks */,
+				D824BBFC2FB2EEC2001E985C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D824BC042FB2EEC2001E985C /* FanfolioLiveScoreWidget */,
+			);
+			name = FanfolioLiveScoreWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = FanfolioLiveScoreWidgetExtension;
+			productReference = D824BBFE2FB2EEC2001E985C /* FanfolioLiveScoreWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		D84DF8A82EE9A66200205AA9 /* Fanfolio */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D84DF8CA2EE9A66400205AA9 /* Build configuration list for PBXNativeTarget "Fanfolio" */;
@@ -129,10 +223,12 @@
 				D84DF8A52EE9A66200205AA9 /* Sources */,
 				D84DF8A62EE9A66200205AA9 /* Frameworks */,
 				D84DF8A72EE9A66200205AA9 /* Resources */,
+				D824BC192FB2EEC4001E985C /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				D824BC132FB2EEC4001E985C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				D84DF8AB2EE9A66200205AA9 /* Fanfolio */,
@@ -200,9 +296,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2610;
-				LastUpgradeCheck = 2610;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
+					D824BBFD2FB2EEC2001E985C = {
+						CreatedOnToolsVersion = 26.4;
+					};
 					D84DF8A82EE9A66200205AA9 = {
 						CreatedOnToolsVersion = 26.1;
 					};
@@ -239,11 +338,19 @@
 				D84DF8A82EE9A66200205AA9 /* Fanfolio */,
 				D84DF8B52EE9A66400205AA9 /* FanfolioTests */,
 				D84DF8BF2EE9A66400205AA9 /* FanfolioUITests */,
+				D824BBFD2FB2EEC2001E985C /* FanfolioLiveScoreWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		D824BBFC2FB2EEC2001E985C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D84DF8A72EE9A66200205AA9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -269,6 +376,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		D824BBFA2FB2EEC2001E985C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D84DF8A52EE9A66200205AA9 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -293,6 +407,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		D824BC132FB2EEC4001E985C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D824BBFD2FB2EEC2001E985C /* FanfolioLiveScoreWidgetExtension */;
+			targetProxy = D824BC122FB2EEC4001E985C /* PBXContainerItemProxy */;
+		};
 		D84DF8B82EE9A66400205AA9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = D84DF8A82EE9A66200205AA9 /* Fanfolio */;
@@ -306,11 +425,74 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		D824BC162FB2EEC4001E985C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CH7CDR7288;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FanfolioLiveScoreWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FanfolioLiveScoreWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Joe.Fanfolio.FanfolioLiveScoreWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D824BC172FB2EEC4001E985C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CH7CDR7288;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FanfolioLiveScoreWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FanfolioLiveScoreWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Joe.Fanfolio.FanfolioLiveScoreWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		D84DF8C82EE9A66400205AA9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -365,6 +547,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
@@ -376,6 +559,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -423,6 +607,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_VERSION = 6.0;
 				VALIDATE_PRODUCT = YES;
@@ -448,12 +633,12 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.Joe.Fanfolio;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -485,12 +670,12 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.Joe.Fanfolio;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -590,6 +775,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		D824BC152FB2EEC4001E985C /* Build configuration list for PBXNativeTarget "FanfolioLiveScoreWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D824BC162FB2EEC4001E985C /* Debug */,
+				D824BC172FB2EEC4001E985C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		D84DF8A42EE9A66200205AA9 /* Build configuration list for PBXProject "Fanfolio" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

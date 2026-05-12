@@ -55,10 +55,11 @@ enum APIConfig {
     }
 
     // MARK: - 정책 URL
-    /// `Info.plist`의 `PRIVACY_POLICY_URL`(`DeveloperSettings.xcconfig` 등에서 주입). 공백이면 nil.
+    /// `Info.plist`의 `PRIVACY_POLICY_URL`(`DeveloperSettings.xcconfig` 등에서 주입). 공백이면 nil. xcconfig는 `//`가 주석이라 URL은 `https:/$()/host/...`처럼 빈 `$()` 치환으로 `//`를 넣는 방식이 안전합니다.
     static var privacyPolicyURL: URL? {
         guard let raw = Bundle.main.infoDictionary?["PRIVACY_POLICY_URL"] as? String else { return nil }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
         guard !trimmed.isEmpty, let url = URL(string: trimmed) else { return nil }
         return url
     }

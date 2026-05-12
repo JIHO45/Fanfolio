@@ -364,12 +364,22 @@ actor KBOFirestoreService {
             period: nil
         )
 
-        let periods: [PeriodScore] = game.homeInnings.enumerated().compactMap { idx, homeScore -> PeriodScore? in
-            let awayScore = idx < game.awayInnings.count ? game.awayInnings[idx] : nil
-            // 둘 다 nil이면 아직 플레이되지 않은 이닝 → 제외
-            guard homeScore != nil || awayScore != nil else { return nil }
-            let label = idx < 9 ? "\(idx + 1)" : String(localized: "inning.extra.label", defaultValue: "연장")
-            return PeriodScore(period: label, home: homeScore, away: awayScore)
+        // ESPN MLB와 동일하게 "실제 전달된 이닝 수"를 기준으로 하되, 최소 9이닝은 항상 노출.
+        // Firestore는 trailing nil을 포함한 고정 길이 배열(예: 18)을 줄 수 있어 마지막 유효 이닝까지만 계산합니다.
+        let maxStoredCount = max(game.homeInnings.count, game.awayInnings.count)
+        let lastPlayedIndex = (0..<maxStoredCount).last { i in
+            let hVal = i < game.homeInnings.count ? game.homeInnings[i] : nil
+            let aVal = i < game.awayInnings.count ? game.awayInnings[i] : nil
+            return hVal != nil || aVal != nil
+        }
+        let effectiveDataCount = (lastPlayedIndex ?? -1) + 1
+        let inningCount = max(9, effectiveDataCount)
+        // ESPN MLB와 동일하게 시스템 언어 변경을 즉시 반영하는 로케일 사용
+        let inningLabels = SportType.baseball.periodLabels(count: inningCount, locale: .autoupdatingCurrent)
+        let periods: [PeriodScore] = (0..<inningCount).map { i in
+            let hVal = i < game.homeInnings.count ? game.homeInnings[i] : nil
+            let aVal = i < game.awayInnings.count ? game.awayInnings[i] : nil
+            return PeriodScore(period: inningLabels[i], home: hVal, away: aVal)
         }
 
         return LiveFixture(
